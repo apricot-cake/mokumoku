@@ -1,1 +1,12 @@
 extensionDescription: "YouTubeチャンネルの新着動画を、同じ経過時間の通常の再生数と比べた倍率で並べます。新しいのに伸びている動画を見つけられます。"
+
+panelOpenChannel: "YouTubeチャンネルの「動画」タブを開いてください"
+panelReloadHint: "開いている場合は、ページを再読み込みしてください"
+panelSwitchToNewest: "並び順を「新しい順」にしてください"
+panelSwitchToNewestHint: "人気順や古い順では、比べる基準を正しく出せません"
+panelEmpty: "動画を読み込んでいます"
+panelInsufficient: "比べるための動画が足りません。一覧をスクロールして、公開から1日以上たった動画を$1本以上読み込んでください。"
+panelLoadedCount: "読み込み済み $1 本"
+panelRatioDescription: "同じ経過時間の通常の再生数に対する倍率"
+panelProvisional: "公開から1日未満（倍率は参考値）"
+panelViews: "$1回視聴"

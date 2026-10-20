@@ -1,1 +1,12 @@
 extensionDescription: "Ranks a YouTube channel's recent uploads by how their views compare with the channel's typical views at the same age, so you can spot new videos that are taking off."
+
+panelOpenChannel: "Open the Videos tab of a YouTube channel"
+panelReloadHint: "If it's already open, reload the page"
+panelSwitchToNewest: "Sort the videos by Latest"
+panelSwitchToNewestHint: "Popular and Oldest orders don't give a fair baseline"
+panelEmpty: "Loading videos"
+panelInsufficient: "Not enough videos to compare. Scroll the list until at least $1 videos older than one day are loaded."
+panelLoadedCount: "$1 videos loaded"
+panelRatioDescription: "Views compared with the channel's typical views at the same age"
+panelProvisional: "Less than a day old (ratios are rough)"
+panelViews: "$1 views"
