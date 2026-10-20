@@ -1,0 +1,47 @@
+{
+  "name": "mokumoku",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24.12.0"
+  },
+  "scripts": {
+    "dev": "wxt",
+    "build": "wxt build",
+    "zip": "wxt zip",
+    "lint": "pnpm run lint:code && pnpm run lint:markdown && pnpm run lint:typos",
+    "lint:code": "biome ci .",
+    "lint:markdown": "markdownlint-cli2",
+    "lint:markdown:fix": "markdownlint-cli2 --fix",
+    "lint:typos": "typos",
+    "lint:fix": "biome check --write .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "pnpm run lint && pnpm run typecheck && pnpm run test",
+    "postinstall": "node scripts/bootstrap-i18n-types.ts && wxt prepare"
+  },
+  "dependencies": {
+    "@fontsource-variable/noto-sans": "5.3.0",
+    "@fontsource-variable/noto-sans-jp": "5.3.1",
+    "@wxt-dev/i18n": "0.2.8",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@tailwindcss/vite": "4.3.3",
+    "@types/node": "26.6.5",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@wxt-dev/module-react": "1.2.2",
+    "happy-dom": "20.14.6",
+    "markdownlint-cli2": "0.23.3",
+    "tailwindcss": "4.3.3",
+    "typescript": "7.0.2",
+    "vite": "8.3.4",
+    "vitest": "5.0.4",
+    "wxt": "0.21.4"
+  },
+  "packageManager": "pnpm@12.11.2"
+}

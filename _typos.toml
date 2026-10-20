@@ -1,0 +1,11 @@
+[files]
+extend-exclude = [".git/", "pnpm-lock.yaml", "node_modules/", ".output/", ".wxt/"]
+ignore-hidden = false
+
+[default.extend-identifiers]
+# 可変フォントの幅を表すOpenTypeの軸タグ。
+wdth = "wdth"
+
+[default.extend-words]
+# スペイン語の「〜前」（hace 2 semanas）。YouTube の経過時間表記を読む。
+hace = "hace"

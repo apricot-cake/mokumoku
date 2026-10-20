@@ -1,0 +1,6 @@
+# 依存を追加するときも完全なバージョンを記録する。
+saveExact: true
+
+allowBuilds:
+  esbuild: true
+  fsevents: false
