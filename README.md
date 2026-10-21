@@ -25,7 +25,19 @@ pnpm run check
 pnpm run build
 ```
 
-ビルドした `.output/chrome-mv3` を、`chrome://extensions` の「パッケージ化されていない拡張機能を読み込む」から読み込みます。
+ビルドした拡張機能は、開発専用プロファイルの Chrome で確認します。次のコマンドで、拡張機能を読み込んだ Chrome がウィンドウ付きで開きます。
+
+```bash
+pnpm run browser:open
+```
+
+実際の YouTube ページでの自動確認は次のコマンドで行います。ヘッドレスの Chrome で読み取りとサイドパネルの表示を確かめます。
+
+```bash
+pnpm run smoke
+```
+
+詳しい手順は [開発ガイド](AGENTS.md) にあります。
 
 ## ライセンス
 
