@@ -122,7 +122,7 @@ await withDevBrowser(async (browser) => {
         (element) => element.textContent ?? "",
       );
 
-    // 「手動」のときは、一覧の末尾の「さらに読み込む」で動画が増え、
+    // 「手動」のときは、ヘッダーの「さらに読み込む」で動画が増え、
     // ページのスクロール位置が保たれることを確かめる。
     if (snapshot.canLoadMore) {
       const rowCount = () =>
@@ -168,7 +168,7 @@ await withDevBrowser(async (browser) => {
         { timeout: 60000 },
       );
       const summary = await statusText();
-      if (!/直近6か月の動画|Past 6 months/.test(summary))
+      if (!/範囲内|in range/.test(summary))
         throw new Error(`期間までの読み込みが完了していません: ${summary}`);
       const scrollAfter = await page.evaluate(() => window.scrollY);
       if (scrollAfter !== scrollBefore)

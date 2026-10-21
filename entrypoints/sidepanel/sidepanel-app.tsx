@@ -79,28 +79,29 @@ function VideoRow({ video, rank }: { video: RankedVideo; rank?: number }) {
         rel="noreferrer"
         className="flex gap-3 rounded-md p-2 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
       >
-        <span className="w-5 shrink-0 pt-1 text-right text-xs text-muted-foreground tabular-nums">
+        <span className="w-5 shrink-0 pt-0.5 text-right text-xs text-muted-foreground tabular-nums">
           {rank ?? "–"}
         </span>
+        {/* サイドパネルの幅が狭いときはサムネイルを小さくし、タイトルの幅を確保する。 */}
         <img
           src={`https://i.ytimg.com/vi/${encodeURIComponent(video.id)}/mqdefault.jpg`}
           alt=""
           loading="lazy"
-          className="aspect-video w-28 shrink-0 rounded object-cover"
+          className="aspect-video w-24 shrink-0 self-start rounded object-cover min-[400px]:w-28"
         />
-        <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p className="line-clamp-2 text-sm leading-snug text-foreground">
             {video.title}
           </p>
-          <p className="flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
-            <span
-              className="font-semibold text-primary tabular-nums"
-              title={t("panelRatioDescription")}
-            >
-              ×{ratioNumber.format(video.ratio)}
-            </span>
-            <span>{t("panelViews", [compactNumber.format(video.views)])}</span>
-            <span>{video.ageText}</span>
+          <span
+            className="w-fit rounded bg-accent px-1.5 py-0.5 text-xs font-semibold text-accent-foreground tabular-nums"
+            title={t("panelRatioDescription")}
+          >
+            ×{ratioNumber.format(video.ratio)}
+          </span>
+          <p className="truncate text-xs text-muted-foreground">
+            {t("panelViews", [compactNumber.format(video.views)])} ·{" "}
+            {video.ageText}
           </p>
         </div>
       </a>
@@ -129,8 +130,7 @@ function StatusLine({
   onCancel: () => void;
   onResume: () => void;
 }) {
-  const summary = () =>
-    t("panelPeriodSummary", [PERIOD_LABELS[period](), String(shownCount)]);
+  const summary = () => t("panelRangeCount", [String(shownCount)]);
   let text: string;
   let action: { label: string; onClick: () => void } | null = null;
   if (state.kind === "loading") {
@@ -138,7 +138,12 @@ function StatusLine({
     if (state.mode === "period")
       action = { label: t("panelLoadCancel"), onClick: onCancel };
   } else if (period === "all") {
-    text = t("panelLoadedCount", [String(loadedCount)]);
+    text =
+      state.kind === "done" &&
+      state.mode === "more" &&
+      state.result === "timeout"
+        ? t("panelLoadMoreFailed")
+        : t("panelLoadedCount", [String(loadedCount)]);
   } else if (
     state.kind === "done" &&
     state.mode === "period" &&
@@ -176,44 +181,29 @@ function StatusLine({
   );
 }
 
-/** 「すべて」を選んでいるときに一覧の末尾へ置く、1回分の追加読み込み。 */
-function LoadMoreFooter({
+/** 「手動」のときにヘッダーへ置く、1回分の追加読み込み。 */
+function LoadMoreButton({
   canLoadMore,
-  state,
+  loading,
   onLoad,
 }: {
   canLoadMore: boolean;
-  state: LoadState;
+  loading: boolean;
   onLoad: () => void;
 }) {
-  if (!canLoadMore) {
-    return (
-      <p className="px-4 py-3 text-center text-xs text-muted-foreground">
-        {t("panelAllLoaded")}
-      </p>
-    );
-  }
-  const loading = state.kind === "loading";
-  const failed =
-    state.kind === "done" &&
-    state.mode === "more" &&
-    state.result === "timeout";
   return (
-    <div className="flex flex-col items-center gap-2 px-4 py-3">
-      <button
-        type="button"
-        onClick={onLoad}
-        disabled={loading}
-        className="h-8 w-full rounded-md border text-xs font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60"
-      >
-        {loading ? t("panelLoadingMore") : t("panelLoadMore")}
-      </button>
-      {failed ? (
-        <p role="alert" className="text-xs text-destructive">
-          {t("panelLoadMoreFailed")}
-        </p>
-      ) : null}
-    </div>
+    <button
+      type="button"
+      onClick={onLoad}
+      disabled={loading || !canLoadMore}
+      className="h-8 shrink-0 rounded-md border px-3 text-xs font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 disabled:hover:bg-transparent"
+    >
+      {!canLoadMore
+        ? t("panelAllLoaded")
+        : loading
+          ? t("panelLoadingMore")
+          : t("panelLoadMore")}
+    </button>
   );
 }
 
@@ -234,6 +224,7 @@ function ChannelRanking({
       : [];
   const hiddenCount =
     ranking.kind === "ranked" ? ranking.videos.length - shown.length : 0;
+  const freshCount = ranking.kind === "ranked" ? ranking.fresh.length : 0;
   const untilAgeMs = periodMaxAgeMs(period);
   // 新しい順なので、期間を超える動画が1本でもあれば期間内はすべて読み込み済み。
   const periodLoaded =
@@ -253,18 +244,25 @@ function ChannelRanking({
 
   return (
     <div className="flex flex-col">
-      <header className="sticky top-0 z-10 flex flex-col gap-1 border-b bg-background px-4 pt-3 pb-2">
+      <header className="sticky top-0 z-10 flex flex-col gap-2 border-b bg-background px-4 pt-3 pb-2">
+        <h1 className="truncate text-base font-semibold text-foreground">
+          {snapshot.channel}
+        </h1>
         <div className="flex items-center justify-between gap-2">
-          <h1 className="min-w-0 truncate text-base font-semibold text-foreground">
-            {snapshot.channel}
-          </h1>
           <PeriodSelect value={period} onChange={setPeriod} />
+          {period === "all" ? (
+            <LoadMoreButton
+              canLoadMore={snapshot.canLoadMore}
+              loading={state.kind === "loading"}
+              onLoad={() => void run(null)}
+            />
+          ) : null}
         </div>
         <StatusLine
           period={period}
           state={state}
           loadedCount={snapshot.videos.length}
-          shownCount={shown.length}
+          shownCount={shown.length + freshCount}
           periodLoaded={periodLoaded}
           onCancel={cancel}
           onResume={() => {
@@ -311,13 +309,6 @@ function ChannelRanking({
           ) : null}
         </>
       )}
-      {period === "all" ? (
-        <LoadMoreFooter
-          canLoadMore={snapshot.canLoadMore}
-          state={state}
-          onLoad={() => void run(null)}
-        />
-      ) : null}
     </div>
   );
 }

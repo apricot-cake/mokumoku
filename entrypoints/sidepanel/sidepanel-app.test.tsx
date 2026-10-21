@@ -121,7 +121,7 @@ describe("SidepanelApp", () => {
     expect(fresh?.textContent).toContain("動画 fresh");
   });
 
-  it("すべてのときは、一覧の末尾のボタンで1回分を読み込む", async () => {
+  it("手動のときは、ヘッダーのボタンで1回分を読み込む", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
       channel: "Example",
@@ -130,14 +130,14 @@ describe("SidepanelApp", () => {
     };
     const send = await render(snapshot, () => Promise.resolve("timeout"));
     expect(status()).toBe("1 videos loaded");
-    expect(container.querySelector("header button")).toBeNull();
+    expect(container.querySelector("header button")?.textContent).toBe(
+      "Load more",
+    );
     await act(async () => {
       button("Load more").click();
     });
     expect(send).toHaveBeenCalledWith(1, { type: "mokumoku:load-more" });
-    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
-      "Couldn't load more videos",
-    );
+    expect(status()).toBe("Couldn't load more videos. Try again.");
   });
 
   it("期間を選ぶと、それより古い動画を一覧から隠して保存する", async () => {
@@ -249,11 +249,11 @@ describe("SidepanelApp", () => {
         type: "mokumoku:load-more",
       }),
     );
-    expect(status()).toBe("Past week: 4 videos");
-    expect(container.textContent).not.toContain("Load more");
+    expect(status()).toBe("4 videos in range");
+    expect(container.querySelector("header button")).toBeNull();
   });
 
-  it("最後まで読み込んだらボタンを出さない", async () => {
+  it("最後まで読み込んだらボタンを無効にする", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
       channel: "Example",
@@ -261,8 +261,11 @@ describe("SidepanelApp", () => {
       videos: [video("a", 100, 2)],
     };
     await render(snapshot);
-    expect(container.textContent).not.toContain("Load more");
-    expect(container.textContent).toContain("All videos are loaded");
+    const loadMore = container.querySelector(
+      "header button",
+    ) as HTMLButtonElement;
+    expect(loadMore.textContent).toBe("All loaded");
+    expect(loadMore.disabled).toBe(true);
   });
 
   it("基準を出せないときは読み込みを促す", async () => {
