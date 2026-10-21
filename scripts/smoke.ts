@@ -108,6 +108,33 @@ await withDevBrowser(async (browser) => {
       `[mokumoku] サイドパネル: ${shown.channel} の ${shown.count} 件を表示`,
     );
     for (const row of shown.rows) console.log(`  ${row}`);
+
+    // パネルの「さらに読み込む」で動画が増え、ページのスクロール位置が保たれることを確かめる。
+    if (snapshot.canLoadMore) {
+      const rowCount = () =>
+        panel.evaluate(() => document.querySelectorAll("li").length);
+      const beforeRows = await rowCount();
+      // 一覧の途中を読んでいる状態にしてから頼む。
+      const scrollBefore = await page.evaluate(() => {
+        window.scrollTo(0, 400);
+        return window.scrollY;
+      });
+      await panel.click("header button");
+      await panel.waitForFunction(
+        (before) => document.querySelectorAll("li").length > before,
+        { timeout: 15000 },
+        beforeRows,
+      );
+      const afterRows = await rowCount();
+      const scrollAfter = await page.evaluate(() => window.scrollY);
+      if (scrollAfter !== scrollBefore)
+        throw new Error(
+          `追加読み込みの後にスクロール位置が戻っていません: ${scrollBefore} → ${scrollAfter}`,
+        );
+      console.log(
+        `[mokumoku] さらに読み込む: ${beforeRows} 件 → ${afterRows} 件（スクロール位置 ${scrollAfter} を維持）`,
+      );
+    }
   } finally {
     await page.close();
   }

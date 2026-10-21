@@ -1,5 +1,8 @@
 import { browser } from "wxt/browser";
+import { loadMore } from "../utils/load-more.ts";
 import {
+  LOAD_MORE_REQUEST,
+  type LoadMoreResult,
   type PageSnapshot,
   SNAPSHOT_REQUEST,
   SNAPSHOT_UPDATE,
@@ -17,6 +20,8 @@ export default defineContentScript({
     let snapshot: PageSnapshot = readSnapshot(document, location.pathname);
     let serialized = JSON.stringify(snapshot);
     let timer: number | undefined;
+    // 読み込み中に重ねて頼まれたら、同じ読み込みの結果を返す。
+    let loading: Promise<LoadMoreResult> | null = null;
 
     function refresh(): void {
       timer = undefined;
@@ -48,7 +53,14 @@ export default defineContentScript({
     ctx.addEventListener(document, "yt-navigate-finish", scheduleRefresh);
 
     browser.runtime.onMessage.addListener((message) => {
-      if ((message as { type?: unknown })?.type !== SNAPSHOT_REQUEST) return;
+      const type = (message as { type?: unknown })?.type;
+      if (type === LOAD_MORE_REQUEST) {
+        loading ??= loadMore(document).finally(() => {
+          loading = null;
+        });
+        return loading;
+      }
+      if (type !== SNAPSHOT_REQUEST) return;
       if (timer !== undefined) {
         clearTimeout(timer);
         refresh();

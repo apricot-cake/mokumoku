@@ -7,13 +7,18 @@ import {
   SNAPSHOT_REQUEST,
 } from "../../utils/snapshot.ts";
 
+export interface PageState {
+  readonly tabId: number;
+  readonly snapshot: PageSnapshot;
+}
+
 /**
- * 現在のウィンドウで表示中のタブの読み取り結果。content script が応答しない
- * タブ（YouTube 以外、または拡張機能の導入前から開いていたタブ）は null。
+ * 現在のウィンドウで表示中のタブと、その読み取り結果。content script が応答
+ * しないタブ（YouTube 以外、または拡張機能の導入前から開いていたタブ）は null。
  * 読み取り前は undefined。
  */
-export function usePageSnapshot(): PageSnapshot | null | undefined {
-  const [snapshot, setSnapshot] = useState<PageSnapshot | null | undefined>();
+export function usePageSnapshot(): PageState | null | undefined {
+  const [state, setState] = useState<PageState | null | undefined>();
 
   useEffect(() => {
     let activeTabId: number | undefined;
@@ -25,15 +30,20 @@ export function usePageSnapshot(): PageSnapshot | null | undefined {
         active: true,
         currentWindow: true,
       });
-      activeTabId = tab?.id;
+      const tabId = tab?.id;
+      activeTabId = tabId;
       const response =
-        activeTabId === undefined
+        tabId === undefined
           ? null
           : await browser.tabs
-              .sendMessage(activeTabId, { type: SNAPSHOT_REQUEST })
+              .sendMessage(tabId, { type: SNAPSHOT_REQUEST })
               .catch(() => null);
       if (current === request) {
-        setSnapshot(isPageSnapshot(response) ? response : null);
+        setState(
+          tabId !== undefined && isPageSnapshot(response)
+            ? { tabId, snapshot: response }
+            : null,
+        );
       }
     }
 
@@ -41,9 +51,14 @@ export function usePageSnapshot(): PageSnapshot | null | undefined {
       message: unknown,
       sender: Browser.runtime.MessageSender,
     ) {
-      if (sender.tab?.id === activeTabId && isSnapshotUpdate(message)) {
+      const tabId = sender.tab?.id;
+      if (
+        tabId !== undefined &&
+        tabId === activeTabId &&
+        isSnapshotUpdate(message)
+      ) {
         request += 1;
-        setSnapshot(message.snapshot);
+        setState({ tabId, snapshot: message.snapshot });
       }
     }
 
@@ -66,5 +81,5 @@ export function usePageSnapshot(): PageSnapshot | null | undefined {
     };
   }, []);
 
-  return snapshot;
+  return state;
 }

@@ -1,8 +1,13 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { browser } from "wxt/browser";
 import { t } from "../../utils/i18n.ts";
 import { type RankedVideo, rankVideos } from "../../utils/ranking.ts";
 import { MIN_BASELINE_SAMPLES } from "../../utils/score.ts";
-import type { PageSnapshot } from "../../utils/snapshot.ts";
+import {
+  isLoadMoreResult,
+  LOAD_MORE_REQUEST,
+  type PageSnapshot,
+} from "../../utils/snapshot.ts";
 import { usePageSnapshot } from "./use-page-snapshot.ts";
 
 const compactNumber = new Intl.NumberFormat(undefined, {
@@ -61,21 +66,70 @@ function VideoRow({ video, rank }: { video: RankedVideo; rank?: number }) {
   );
 }
 
+function LoadMoreButton({
+  tabId,
+  canLoadMore,
+}: {
+  tabId: number;
+  canLoadMore: boolean;
+}) {
+  const [state, setState] = useState<"idle" | "loading" | "failed">("idle");
+
+  async function load(): Promise<void> {
+    setState("loading");
+    const result = await browser.tabs
+      .sendMessage(tabId, { type: LOAD_MORE_REQUEST })
+      .catch(() => null);
+    // 増えた動画は content script の更新通知で一覧に届く。
+    setState(
+      isLoadMoreResult(result) && result !== "timeout" ? "idle" : "failed",
+    );
+  }
+
+  if (!canLoadMore) {
+    return (
+      <p className="text-xs text-muted-foreground">{t("panelAllLoaded")}</p>
+    );
+  }
+  return (
+    <div className="flex items-center gap-2">
+      <button
+        type="button"
+        onClick={() => void load()}
+        disabled={state === "loading"}
+        className="h-8 shrink-0 rounded-md border px-3 text-xs font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60"
+      >
+        {state === "loading" ? t("panelLoadingMore") : t("panelLoadMore")}
+      </button>
+      {state === "failed" ? (
+        <p role="alert" className="text-xs text-destructive">
+          {t("panelLoadMoreFailed")}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 function ChannelRanking({
+  tabId,
   snapshot,
 }: {
+  tabId: number;
   snapshot: Extract<PageSnapshot, { kind: "ready" }>;
 }) {
   const ranking = useMemo(() => rankVideos(snapshot.videos), [snapshot]);
   return (
     <div className="flex flex-col">
-      <header className="flex flex-col gap-0.5 border-b px-4 py-3">
-        <h1 className="truncate text-base font-semibold text-foreground">
-          {snapshot.channel}
-        </h1>
-        <p className="text-xs text-muted-foreground">
-          {t("panelLoadedCount", [String(snapshot.videos.length)])}
-        </p>
+      <header className="sticky top-0 z-10 flex flex-col gap-2 border-b bg-background px-4 py-3">
+        <div className="flex flex-col gap-0.5">
+          <h1 className="truncate text-base font-semibold text-foreground">
+            {snapshot.channel}
+          </h1>
+          <p className="text-xs text-muted-foreground">
+            {t("panelLoadedCount", [String(snapshot.videos.length)])}
+          </p>
+        </div>
+        <LoadMoreButton tabId={tabId} canLoadMore={snapshot.canLoadMore} />
       </header>
       {snapshot.videos.length === 0 ? (
         <Notice title={t("panelEmpty")} />
@@ -109,16 +163,17 @@ function ChannelRanking({
 }
 
 export function SidepanelApp() {
-  const snapshot = usePageSnapshot();
-  if (snapshot === undefined) return null;
-  if (snapshot === null || snapshot.kind === "unsupported") {
+  const page = usePageSnapshot();
+  if (page === undefined) return null;
+  if (page === null || page.snapshot.kind === "unsupported") {
     return (
       <Notice
         title={t("panelOpenChannel")}
-        hint={snapshot === null ? t("panelReloadHint") : undefined}
+        hint={page === null ? t("panelReloadHint") : undefined}
       />
     );
   }
+  const { snapshot } = page;
   if (snapshot.kind === "not-newest") {
     return (
       <Notice
@@ -127,5 +182,8 @@ export function SidepanelApp() {
       />
     );
   }
-  return <ChannelRanking snapshot={snapshot} />;
+  // タブの切り替えで読み込み中の表示を持ち越さないよう、タブごとに作り直す。
+  return (
+    <ChannelRanking key={page.tabId} tabId={page.tabId} snapshot={snapshot} />
+  );
 }

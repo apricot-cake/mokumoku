@@ -16,10 +16,20 @@ export type PageSnapshot =
       readonly kind: "ready";
       readonly channel: string;
       readonly videos: readonly VideoEntry[];
+      /** 一覧の続きがあり、追加で読み込めるか。 */
+      readonly canLoadMore: boolean;
     };
 
 export const SNAPSHOT_REQUEST = "mokumoku:snapshot-request";
 export const SNAPSHOT_UPDATE = "mokumoku:snapshot";
+export const LOAD_MORE_REQUEST = "mokumoku:load-more";
+
+/** 追加読み込みの結果。end は一覧の最後まで読み込み済み。 */
+export type LoadMoreResult = "loaded" | "end" | "timeout";
+
+export function isLoadMoreResult(value: unknown): value is LoadMoreResult {
+  return value === "loaded" || value === "end" || value === "timeout";
+}
 
 export interface SnapshotUpdate {
   readonly type: typeof SNAPSHOT_UPDATE;
@@ -50,6 +60,7 @@ export function isPageSnapshot(value: unknown): value is PageSnapshot {
       return (
         typeof snapshot.channel === "string" &&
         Array.isArray(snapshot.videos) &&
+        typeof snapshot.canLoadMore === "boolean" &&
         snapshot.videos.every(isVideoEntry)
       );
     default:

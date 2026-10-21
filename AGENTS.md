@@ -14,6 +14,6 @@
 
 ## 実機確認の範囲
 
-動作や画面に影響する変更では、`pnpm run check` と `pnpm run build` の後に `pnpm run smoke` を実行する。既定の確認先は Google Japan の「動画」タブで、別のチャンネルは `pnpm run smoke <動画タブの URL>` で指定する。このコマンドは content script の読み取り結果と、ツールバー操作と同じ経路で開いたサイドパネルの表示が一致することを確かめる。
+動作や画面に影響する変更では、`pnpm run check` と `pnpm run build` の後に `pnpm run smoke` を実行する。既定の確認先は Google Japan の「動画」タブで、別のチャンネルは `pnpm run smoke <動画タブの URL>` で指定する。このコマンドは content script の読み取り結果と、ツールバー操作と同じ経路で開いたサイドパネルの表示が一致することを確かめる。続けてパネルの「さらに読み込む」を押し、動画が増えることと、ページのスクロール位置が保たれることを確かめる。
 
 文書だけの変更では、差分と Markdown の検査で足りる。

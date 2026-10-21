@@ -12,7 +12,12 @@ describe("isPageSnapshot", () => {
     expect(isPageSnapshot({ kind: "unsupported" })).toBe(true);
     expect(isPageSnapshot({ kind: "not-newest", channel: "c" })).toBe(true);
     expect(
-      isPageSnapshot({ kind: "ready", channel: "c", videos: [video] }),
+      isPageSnapshot({
+        kind: "ready",
+        channel: "c",
+        videos: [video],
+        canLoadMore: true,
+      }),
     ).toBe(true);
   });
 
@@ -24,6 +29,7 @@ describe("isPageSnapshot", () => {
         kind: "ready",
         channel: "c",
         videos: [{ ...video, views: "1" }],
+        canLoadMore: true,
       }),
     ).toBe(false);
   });

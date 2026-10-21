@@ -4,7 +4,10 @@ import type { PageSnapshot, VideoEntry } from "./snapshot.ts";
 
 // SPA の遷移後も前のページの ytd-browse が hidden で残るので、表示中のものに限る。
 const BROWSE = "ytd-browse:not([hidden])";
-const CARD = `${BROWSE} ytd-rich-grid-renderer ytd-rich-item-renderer`;
+const GRID = `${BROWSE} ytd-rich-grid-renderer`;
+export const CARD = `${GRID} ytd-rich-item-renderer`;
+// 一覧の末尾に置かれ、画面に入ると次の動画を読み込む要素。最後まで読み込むと消える。
+export const CONTINUATION = `${GRID} ytd-continuation-item-renderer`;
 const TITLE_LINK =
   "a.ytLockupMetadataViewModelTitle, a#video-title-link, a#video-title";
 const METADATA_TEXT =
@@ -88,5 +91,10 @@ export function readSnapshot(doc: Document, pathname: string): PageSnapshot {
       videos.push(video);
     }
   }
-  return { kind: "ready", channel, videos };
+  return {
+    kind: "ready",
+    channel,
+    videos,
+    canLoadMore: doc.querySelector(CONTINUATION) !== null,
+  };
 }

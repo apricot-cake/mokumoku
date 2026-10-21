@@ -74,6 +74,7 @@ describe("SidepanelApp", () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
       channel: "Example",
+      canLoadMore: true,
       videos: [
         video("fresh", 500, 0.25),
         video("rising", 60000, 3),
@@ -93,10 +94,46 @@ describe("SidepanelApp", () => {
     expect(fresh?.textContent).toContain("動画 fresh");
   });
 
+  it("さらに読み込むボタンで表示中のタブに追加読み込みを頼む", async () => {
+    const snapshot: PageSnapshot = {
+      kind: "ready",
+      channel: "Example",
+      canLoadMore: true,
+      videos: [video("a", 100, 2)],
+    };
+    await render(snapshot);
+    const send = vi
+      .spyOn(fakeBrowser.tabs, "sendMessage")
+      .mockImplementation((() =>
+        Promise.resolve("timeout")) as typeof fakeBrowser.tabs.sendMessage);
+    const button = container.querySelector("header button");
+    expect(button?.textContent).toBe("Load more");
+    await act(async () => {
+      (button as HTMLButtonElement).click();
+    });
+    expect(send).toHaveBeenCalledWith(1, { type: "mokumoku:load-more" });
+    expect(container.querySelector('[role="alert"]')?.textContent).toContain(
+      "Couldn't load more videos",
+    );
+  });
+
+  it("最後まで読み込んだらボタンを出さない", async () => {
+    const snapshot: PageSnapshot = {
+      kind: "ready",
+      channel: "Example",
+      canLoadMore: false,
+      videos: [video("a", 100, 2)],
+    };
+    await render(snapshot);
+    expect(container.querySelector("header button")).toBeNull();
+    expect(container.textContent).toContain("All videos are loaded");
+  });
+
   it("基準を出せないときは読み込みを促す", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
       channel: "Example",
+      canLoadMore: true,
       videos: [video("a", 100, 2)],
     };
     await render(snapshot);

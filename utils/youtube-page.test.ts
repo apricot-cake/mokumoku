@@ -101,6 +101,17 @@ describe("readSnapshot", () => {
           ageText: "3 か月前",
         },
       ],
+      canLoadMore: false,
+    });
+  });
+
+  it("一覧の末尾に継続要素があれば、続きを読み込める", () => {
+    page(
+      card("a1", text("55万", "55万回視聴") + text("1 日前")) +
+        "<ytd-continuation-item-renderer></ytd-continuation-item-renderer>",
+    );
+    expect(readSnapshot(document, VIDEOS_PATH)).toMatchObject({
+      canLoadMore: true,
     });
   });
 
