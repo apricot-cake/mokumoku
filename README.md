@@ -25,7 +25,13 @@ pnpm run check
 pnpm run build
 ```
 
-ビルドした拡張機能は、開発専用プロファイルの Chrome で確認します。次のコマンドで、拡張機能を読み込んだ Chrome がウィンドウ付きで開きます。
+開発中は次のコマンドを使います。開発サーバーが起動し、拡張機能を読み込んだ開発専用プロファイルの Chrome が開きます。ファイルを保存すると、変更が自動で反映されます。
+
+```bash
+pnpm dev
+```
+
+`pnpm run build` でビルドした配布用の拡張機能は、次のコマンドで同じ Chrome に読み込んで確認できます。
 
 ```bash
 pnpm run browser:open

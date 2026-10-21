@@ -10,8 +10,13 @@ import { devBrowserProfile } from "./managed-dev-browser.ts";
 
 const profile = devBrowserProfile();
 const args = process.argv.slice(2);
-if (args.length > 1 || (args[0] && args[0] !== "--print"))
-  throw new Error("利用できる引数は --print だけです。");
+if (
+  args.length > 1 ||
+  (args[0] && args[0] !== "--print" && args[0] !== "--dev")
+)
+  throw new Error("利用できる引数は --print か --dev だけです。");
+// --dev は開発サーバーの出力を読み込み、変更のたびに自動で再読み込みさせる。
+const dev = args[0] === "--dev";
 if (args[0] === "--print") {
   assertDevBrowserProfile(profile);
   console.log(`プロファイル: ${profile}`);
@@ -22,7 +27,10 @@ if (args[0] === "--print") {
   try {
     const child = spawn(
       process.execPath,
-      [path.join(import.meta.dirname, "manual-dev-browser.ts")],
+      [
+        path.join(import.meta.dirname, "manual-dev-browser.ts"),
+        ...(dev ? ["--dev"] : []),
+      ],
       {
         detached: true,
         stdio: ["ignore", log, log, "ipc"],
@@ -38,7 +46,9 @@ if (args[0] === "--print") {
       child.once("exit", () =>
         reject(
           new Error(
-            "手動確認用 Chrome を起動できません。開発用 Chrome を閉じ、pnpm run build を実行してから再実行してください。",
+            dev
+              ? "手動確認用 Chrome を起動できません。開発用 Chrome を閉じ、pnpm dev の実行中に再実行してください。"
+              : "手動確認用 Chrome を起動できません。開発用 Chrome を閉じ、pnpm run build を実行してから再実行してください。",
           ),
         ),
       );

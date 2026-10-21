@@ -1,3 +1,4 @@
+import { spawn } from "node:child_process";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import tailwindcss from "@tailwindcss/vite";
@@ -8,6 +9,9 @@ import { defineConfig } from "wxt";
 // 走らせるので、各回を JSON で出させて最後に1つの Markdown へまとめる。
 const licensePartsDir = "licenses/.parts";
 const licenseFile = "licenses/third-party.md";
+// 開発サーバーは変更のたびに一部のエントリポイントだけを再ビルドするので、
+// ライセンス文はまとめられない。配布用のビルドに限って同梱する。
+let bundleLicenses = true;
 
 type LicenseEntry = {
   name: string;
@@ -44,7 +48,8 @@ export default defineConfig({
   // locales/<言語>.yml から _locales/<言語>/messages.json と #i18n の型を生成する。
   modules: ["@wxt-dev/i18n/module", "@wxt-dev/module-react"],
   // Chrome 137 以降は `--load-extension` を無視するので、WXT にブラウザを
-  // 起動させても拡張機能は読み込まれない。開発版は .output から手で読み込む。
+  // 起動させても拡張機能は読み込まれない。開発サーバーの起動後に、
+  // 開発専用プロファイルの Chrome へ CDP で読み込む（下の server:started）。
   webExt: {
     disabled: true,
   },
@@ -58,14 +63,34 @@ export default defineConfig({
     },
   },
   hooks: {
+    ready: (wxt) => {
+      bundleLicenses = wxt.config.command === "build";
+    },
     "vite:build:extendConfig": (entrypoints, viteConfig) => {
+      if (!bundleLicenses) return;
       const group = entrypoints.map((entrypoint) => entrypoint.name).join("+");
       viteConfig.build ??= {};
       viteConfig.build.license = {
         fileName: `${licensePartsDir}/${group}.json`,
       };
     },
-    "build:done": (wxt) => mergeLicenseParts(wxt.config.outDir),
+    "build:done": (wxt) =>
+      bundleLicenses ? mergeLicenseParts(wxt.config.outDir) : undefined,
+    "server:started": () => {
+      // 開発用 Chrome は開発サーバーとは別に動き、ウィンドウを閉じるまで残る。
+      // 起動に失敗しても開発サーバーは止めない。
+      const child = spawn(
+        process.execPath,
+        [join(import.meta.dirname, "scripts", "dev-browser.ts"), "--dev"],
+        { stdio: "inherit" },
+      );
+      child.on("exit", (code) => {
+        if (code !== 0)
+          console.warn(
+            "[mokumoku] 開発用 Chrome を開けませんでした。開いている開発用 Chrome を閉じてから pnpm run browser:dev を実行してください。",
+          );
+      });
+    },
   },
   vite: () => ({
     plugins: [tailwindcss()],

@@ -6,7 +6,9 @@
 
 自動確認は `pnpm run smoke` で行う。Puppeteer がヘッドレスの Chrome を pipe 接続で起動し、ビルド済みの拡張機能を読み込み、終了処理で Chrome も閉じる。TCP の CDP ポートは開かない。手動確認には `pnpm run browser:open` を使い、同じプロファイルの Chrome をウィンドウ付きで開いて拡張機能を読み込む。自動確認の前には、手動確認用の Chrome を閉じる。
 
-どちらのコマンドも `.output/chrome-mv3` を読み込むので、先に `pnpm run build` を実行する。CDP で読み込んだ拡張機能は、その Chrome を閉じると外れる。
+開発中は `pnpm dev` を使う。WXT の開発サーバーが `.output/chrome-mv3-dev` へビルドし、起動後に `pnpm run browser:dev` と同じ手順で手動確認用の Chrome を開く。サイドパネルの変更はそのまま反映され、content script の変更では対象のタブが、background と locale の変更では拡張機能全体が自動で再読み込みされる。CDP で読み込んだ拡張機能は `runtime.reload()` で無効になるので、手動確認用 Chrome の保持プロセスが無効化を検知して読み込み直す。手動確認用 Chrome がすでに開いていると起動に失敗するので、閉じてから `pnpm run browser:dev` を実行する。
+
+`browser:open` と `smoke` は `.output/chrome-mv3` を読み込むので、先に `pnpm run build` を実行する。CDP で読み込んだ拡張機能は、その Chrome を閉じると外れる。
 
 実機確認では、ページへ検証用の DOM を追加せず、YouTube が表示した動画だけを使う。テスト用 HTML の結果を実機確認として扱わない。動画の再生、高評価、コメント、チャンネル登録などの操作は行わない。
 
