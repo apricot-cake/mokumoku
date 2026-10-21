@@ -2,6 +2,7 @@ import { browser } from "wxt/browser";
 
 export const RELOAD_HOST_NAME = "io.github.apricot_cake.mokumoku.reload";
 export const RELOAD_ATTEMPT_KEY = "mokumoku.localBuildReload.attempted";
+export const LAST_ERROR_KEY = "mokumoku.localBuildReload.lastError";
 export const CHECK_LOCAL_BUILD = "mokumoku:check-local-build";
 
 export function buildToReload(
@@ -85,9 +86,15 @@ async function queryLocalBuild(ownBuild: string): Promise<boolean> {
     }, RELOAD_TIMEOUT_MS);
     browser.runtime.reload();
     return false;
-  } catch {
+  } catch (error) {
     reloadStarted = false;
-    // Host の未登録などで、拡張機能自体を使えなくしない。
+    // Host の未登録などで、拡張機能自体を使えなくしない。理由は調べられる
+    // よう、Service Worker のコンソールとストレージに残す。
+    const message = error instanceof Error ? error.message : String(error);
+    console.warn("[mokumoku] 配備済みのビルドを確認できません。", message);
+    void browser.storage.local
+      .set({ [LAST_ERROR_KEY]: { at: new Date().toISOString(), message } })
+      .catch(() => {});
     return true;
   }
 }
