@@ -26,8 +26,10 @@ import {
   buildToReload,
   CHECK_LOCAL_BUILD,
   checkPanelBuild,
+  NATIVE_REPLY_TIMEOUT_MS,
   RELOAD_ATTEMPT_KEY,
   RELOAD_HOST_NAME,
+  RELOAD_TIMEOUT_MS,
 } from "./local-build-reload.ts";
 
 let checkLocalBuild: typeof import("./local-build-reload.ts").checkLocalBuild;
@@ -169,6 +171,40 @@ describe("操作時のローカルビルド確認", () => {
     expect(await checkLocalBuild("current")).toBe(true);
     expect(nativeMessaging.sendNativeMessage).toHaveBeenCalledTimes(2);
     expect(nativeMessaging.reload).toHaveBeenCalledTimes(1);
+  });
+
+  test("Hostが応答しなくても確認を止めず、次の操作で再確認する", async () => {
+    vi.useFakeTimers();
+    try {
+      nativeMessaging.sendNativeMessage.mockReturnValueOnce(
+        new Promise(() => {}),
+      );
+      const stuck = checkLocalBuild("current");
+      await vi.advanceTimersByTimeAsync(NATIVE_REPLY_TIMEOUT_MS);
+      expect(await stuck).toBe(true);
+      expect(await checkLocalBuild("current")).toBe(true);
+      expect(nativeMessaging.sendNativeMessage).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  test("リロードが起きないまま時間が過ぎたら確認を再開する", async () => {
+    vi.useFakeTimers();
+    try {
+      nativeMessaging.sendNativeMessage.mockResolvedValue({
+        type: "build-available",
+        build: "next",
+      });
+      expect(await checkLocalBuild("current")).toBe(false);
+      expect(await checkLocalBuild("current")).toBe(false);
+      await vi.advanceTimersByTimeAsync(RELOAD_TIMEOUT_MS);
+      nativeMessaging.get.mockResolvedValue({ [RELOAD_ATTEMPT_KEY]: "next" });
+      expect(await checkLocalBuild("current")).toBe(true);
+      expect(nativeMessaging.sendNativeMessage).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   test("Host接続失敗時は続行し、次の操作で再確認する", async () => {
