@@ -27,7 +27,6 @@ async function readOwner(): Promise<PanelOwner | null> {
   return isPanelOwner(owner) ? owner : null;
 }
 
-/** タブ専用のパネルを無効にすると、開いていたパネルも閉じる。 */
 /** タブの content script が読んだチャンネル ID。応答がなければ null。 */
 async function readTabChannelId(tabId: number): Promise<string | null> {
   const channelId: unknown = await browser.tabs
@@ -37,10 +36,16 @@ async function readTabChannelId(tabId: number): Promise<string | null> {
 }
 
 async function closePanel(owner: PanelOwner): Promise<void> {
-  await browser.storage.session.remove(OWNER_KEY);
-  await browser.sidePanel
-    .setOptions({ tabId: owner.tabId, enabled: false })
-    .catch(() => {});
+  try {
+    await browser.sidePanel.close(
+      owner.panelTabId === null
+        ? { windowId: owner.windowId }
+        : { tabId: owner.panelTabId },
+    );
+    await browser.storage.session.remove(OWNER_KEY);
+  } catch (error) {
+    console.warn("mokumoku のパネルを閉じられませんでした。", error);
+  }
 }
 
 export default defineBackground(() => {
@@ -53,38 +58,48 @@ export default defineBackground(() => {
   if (import.meta.env.COMMAND === "serve" || __MOKUMOKU_LOCAL_DEPLOY__)
     void injectContentScriptIntoOpenTabs();
 
-  // パネルはツールバーのアイコンを押したタブにだけ開く。全タブ共通の
-  // パネル（manifest の default_path）は無効にしておく。
-  void browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
-  void browser.sidePanel.setOptions({ enabled: false });
+  // 開閉は Chrome 標準のアイコン動作に任せる。onClicked は Chrome が直接
+  // パネルを開く経路では発火しないので、所有者は実際の onOpened で記録する。
+  void browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
 
-  browser.action.onClicked.addListener((tab) => {
-    if (tab.id === undefined) return;
-    const tabId = tab.id;
-    // open はユーザー操作の直後に呼ぶ必要があるので、最初の await より前に呼ぶ。
-    const options = browser.sidePanel.setOptions({
-      tabId,
-      path: PANEL_PATH,
-      enabled: true,
-    });
-    const opened = browser.sidePanel.open({ tabId });
-    // ローカル配備ビルドは、パネルを開くたびに配備済みのビルドを問い合わせる。
-    // 新しいビルドがあれば自分を読み込み直し、パネルは閉じる。開き直すと
-    // 新しいビルドを使える。
-    if (__MOKUMOKU_LOCAL_DEPLOY__) void checkLocalBuild(__MOKUMOKU_BUILD_ID__);
+  browser.sidePanel.onOpened.addListener(({ windowId, tabId: panelTabId }) => {
     void (async () => {
+      const [tab] = await browser.tabs.query({ active: true, windowId });
+      if (tab?.id === undefined) return;
+      const tabId = tab.id;
       const previous = await readOwner();
-      if (previous && previous.tabId !== tabId) await closePanel(previous);
+      if (previous && previous.windowId !== windowId)
+        await closePanel(previous);
       const owner: PanelOwner = {
         tabId,
-        windowId: tab.windowId,
+        windowId,
+        panelTabId: panelTabId ?? null,
         pageKey: panelPageKey(tab.url),
-        channelId: await readTabChannelId(tabId),
+        channelId: null,
       };
+      // チャンネルの応答より先に所有者を保存し、その間の移動でも閉じられるようにする。
       await browser.storage.session.set({ [OWNER_KEY]: owner });
-      await Promise.all([options, opened]);
+      const channelId = await readTabChannelId(tabId);
+      const current = await readOwner();
+      // 問い合わせ中にパネルが閉じた場合、古い所有者を書き戻さない。
+      if (
+        current?.tabId === tabId &&
+        current.windowId === windowId &&
+        current.pageKey === owner.pageKey &&
+        current.panelTabId === owner.panelTabId
+      ) {
+        await browser.storage.session.set({
+          [OWNER_KEY]: { ...current, channelId },
+        });
+      }
+      // ローカル配備ビルドは、Chrome が直接開く経路でも更新を確認する。
+      if (__MOKUMOKU_LOCAL_DEPLOY__)
+        void checkLocalBuild(__MOKUMOKU_BUILD_ID__);
     })().catch((error: unknown) => {
-      console.error("mokumoku のパネルを開けませんでした。", error);
+      console.error(
+        "mokumoku のパネルの所有タブを記録できませんでした。",
+        error,
+      );
     });
   });
 
@@ -147,9 +162,10 @@ export default defineBackground(() => {
   });
 
   // パネルを閉じるボタンで閉じたときも、所有タブの記録を消す。
-  browser.sidePanel.onClosed?.addListener(({ tabId }) => {
+  browser.sidePanel.onClosed.addListener(({ tabId, windowId }) => {
     void readOwner().then((owner) => {
-      if (owner && owner.tabId === tabId) return closePanel(owner);
+      if (owner?.windowId === windowId && owner.panelTabId === (tabId ?? null))
+        return browser.storage.session.remove(OWNER_KEY);
     });
   });
 });

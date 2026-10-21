@@ -50,6 +50,7 @@ describe("hasLeftPanelPage", () => {
   const owner = {
     tabId: 1,
     windowId: 1,
+    panelTabId: null,
     pageKey: panelPageKey("https://www.youtube.com/@GoogleJapan/videos"),
     channelId: null,
   };
@@ -122,7 +123,13 @@ describe("hasLeftPanelPage", () => {
 });
 
 describe("hasLeftPanelChannel", () => {
-  const owner = { tabId: 1, windowId: 1, pageKey: null, channelId: "UC1" };
+  const owner = {
+    tabId: 1,
+    windowId: 1,
+    panelTabId: null,
+    pageKey: null,
+    channelId: "UC1",
+  };
 
   it("別のチャンネルになったら閉じる", () => {
     expect(hasLeftPanelChannel(owner, "UC1")).toBe(false);

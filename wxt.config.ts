@@ -67,6 +67,8 @@ export default defineConfig({
     disabled: true,
   },
   manifest: {
+    // パネルの実際の開閉通知（onOpened/onClosed）で所有タブを管理する。
+    minimum_chrome_version: "142",
     // ブラウザのロケールにメッセージがないときの言語。locales/en.yml が対応する。
     default_locale: "en",
     name: "mokumoku",

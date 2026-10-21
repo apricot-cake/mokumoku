@@ -53,6 +53,8 @@ function isChannelUrl(url: string): boolean {
 export interface PanelOwner {
   readonly tabId: number;
   readonly windowId: number;
+  /** Chrome が実際に開いたパネルの範囲。全タブ共通なら null。 */
+  readonly panelTabId: number | null;
   readonly pageKey: string | null;
   /** パネルを開いたチャンネルの ID。チャンネル以外のページや、読めなければ null。 */
   readonly channelId: string | null;
@@ -64,6 +66,7 @@ export function isPanelOwner(value: unknown): value is PanelOwner {
   return (
     typeof owner.tabId === "number" &&
     typeof owner.windowId === "number" &&
+    (owner.panelTabId === null || typeof owner.panelTabId === "number") &&
     (owner.pageKey === null || typeof owner.pageKey === "string") &&
     (owner.channelId === null || typeof owner.channelId === "string")
   );

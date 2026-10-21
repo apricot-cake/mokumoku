@@ -88,6 +88,15 @@ await withDevBrowser(async (browser) => {
       );
       if (!tab || others.length > 0)
         throw new Error("検証用タブを一意に特定できません。");
+      const ownerTabId = await worker.evaluate(async () => {
+        const api = (globalThis as unknown as { chrome: typeof Browser })
+          .chrome;
+        const [active] = await api.tabs.query({
+          active: true,
+          lastFocusedWindow: true,
+        });
+        return active?.id;
+      });
       await root.send("Extensions.triggerAction", {
         id: extensionId,
         targetId: tab.targetId,
@@ -96,13 +105,59 @@ await withDevBrowser(async (browser) => {
         (candidate) => candidate.url() === panelUrl,
         { timeout: 10000 },
       );
-      return await target.asPage();
+      const openedPanel = await target.asPage();
+      // target の作成だけでなく、本体の onOpened が所有タブを記録するまで待つ。
+      // 古い background が残って開閉管理を通らない場合も、ここで検出する。
+      await openedPanel.waitForFunction(
+        async (expectedTabId) => {
+          const api = (globalThis as unknown as { chrome: typeof Browser })
+            .chrome;
+          const { panelOwner } = await api.storage.session.get("panelOwner");
+          return (
+            expectedTabId !== undefined &&
+            typeof panelOwner === "object" &&
+            panelOwner !== null &&
+            "tabId" in panelOwner &&
+            panelOwner.tabId === expectedTabId
+          );
+        },
+        { timeout: 5000 },
+        ownerTabId,
+      );
+      return openedPanel;
     };
     const waitPanelClosed = async (reason: string) => {
       const deadline = Date.now() + 5000;
       while (isPanelOpen()) {
-        if (Date.now() > deadline)
-          throw new Error(`${reason}でパネルが閉じません。`);
+        if (Date.now() > deadline) {
+          const state = await worker.evaluate(async () => {
+            const api = (globalThis as unknown as { chrome: typeof Browser })
+              .chrome;
+            const { panelOwner } = await api.storage.session.get("panelOwner");
+            const [tab] = await api.tabs.query({
+              active: true,
+              lastFocusedWindow: true,
+            });
+            if (tab?.id === undefined) return { panelOwner };
+            return {
+              panelOwner,
+              options: await api.sidePanel.getOptions({ tabId: tab.id }),
+              channelId: await api.tabs
+                .sendMessage(tab.id, { type: "mokumoku:channel-request" })
+                .catch(() => null),
+            };
+          });
+          const feed = await page.$eval(
+            "head",
+            (head) =>
+              head
+                .querySelector('link[type="application/rss+xml"]')
+                ?.getAttribute("href") ?? null,
+          );
+          throw new Error(
+            `${reason}でパネルが閉じません。${JSON.stringify({ state, url: page.url(), feed })}`,
+          );
+        }
         await new Promise((resolve) => setTimeout(resolve, 100));
       }
     };
