@@ -316,7 +316,7 @@ function ChannelRanking({
         ) : null}
       </header>
       {snapshot.videos.length === 0 ? (
-        <Notice title={t("panelEmpty")} />
+        <Notice title={t(snapshot.empty ? "panelNoVideos" : "panelEmpty")} />
       ) : ranking.kind === "insufficient" ? (
         <Notice
           title={t("panelInsufficient", [String(MIN_BASELINE_SAMPLES)])}

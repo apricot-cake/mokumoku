@@ -102,6 +102,7 @@ describe("SidepanelApp", () => {
       kind: "ready",
       channel: "Example",
       canLoadMore: true,
+      empty: false,
       videos: [
         video("fresh", 500, 0.25),
         video("rising", 60000, 3),
@@ -126,6 +127,7 @@ describe("SidepanelApp", () => {
       kind: "ready",
       channel: "Example",
       canLoadMore: true,
+      empty: false,
       videos: [video("a", 100, 2)],
     };
     const send = await render(snapshot, () => Promise.resolve("timeout"));
@@ -146,6 +148,7 @@ describe("SidepanelApp", () => {
       kind: "ready",
       channel: "Example",
       canLoadMore: false,
+      empty: false,
       videos: typical,
     };
     await render(snapshot);
@@ -171,6 +174,7 @@ describe("SidepanelApp", () => {
       kind: "ready",
       channel: "Example",
       canLoadMore: false,
+      empty: false,
       videos: [1, 2, 4, 7, 14, 30, 60, 90, 180, 365].map((days) =>
         video(`d${days}`, Math.round(10000 * Math.sqrt(days)), days),
       ),
@@ -185,6 +189,7 @@ describe("SidepanelApp", () => {
       kind: "ready",
       channel: "Example",
       canLoadMore: true,
+      empty: false,
       videos: [video("a", 100, 2)],
     };
     let finish: (value: string) => void = () => {};
@@ -236,6 +241,7 @@ describe("SidepanelApp", () => {
       kind: "ready",
       channel: "Example",
       canLoadMore: true,
+      empty: false,
       videos: [1, 2, 4, 7, 14, 30, 60, 90, 180, 365].map((days) =>
         video(`d${days}`, Math.round(10000 * Math.sqrt(days)), days),
       ),
@@ -260,6 +266,7 @@ describe("SidepanelApp", () => {
       kind: "ready",
       channel: "Example",
       canLoadMore: false,
+      empty: false,
       videos: [video("a", 100, 2)],
     };
     await render(snapshot);
@@ -271,6 +278,7 @@ describe("SidepanelApp", () => {
       kind: "ready",
       channel: "Example",
       canLoadMore: false,
+      empty: false,
       videos: [video("a", 100, 2)],
     };
     await render(snapshot);
@@ -287,6 +295,7 @@ describe("SidepanelApp", () => {
       kind: "ready",
       channel: "Example",
       canLoadMore: true,
+      empty: false,
       videos: [video("a", 100, 2)],
     };
     await render(snapshot);

@@ -57,16 +57,35 @@ describe("channelPathKind", () => {
 });
 
 describe("isNewestOrder", () => {
-  it("先頭のチップが選ばれていれば新しい順", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+  const ordered = [1, 3, 3, 9].map((days) => ({ ageMs: days * DAY }));
+  const shuffled = [9, 1, 30, 3].map((days) => ({ ageMs: days * DAY }));
+
+  it("並び順のチップで選ばれた文言で判断する", () => {
     page(chips(0));
-    expect(isNewestOrder(document)).toBe(true);
+    expect(isNewestOrder(document, shuffled)).toBe(true);
     page(chips(1));
-    expect(isNewestOrder(document)).toBe(false);
+    expect(isNewestOrder(document, ordered)).toBe(false);
   });
 
-  it("チップのないチャンネルは新しい順", () => {
+  it("並び順のプルダウンの文言で判断する（メンバーシップのあるチャンネル）", () => {
+    const pulldown = (label: string) =>
+      `<chip-shape><button role="combobox" aria-selected="false">${label}</button></chip-shape>` +
+      '<chip-shape><button role="tab" aria-label="メンバー限定" aria-selected="false">メンバー限定</button></chip-shape>';
+    page(pulldown("新しい順"));
+    expect(isNewestOrder(document, shuffled)).toBe(true);
+    page(pulldown("人気の動画"));
+    expect(isNewestOrder(document, ordered)).toBe(false);
+  });
+
+  it("文言で判断できなければ、経過時間が上から順に増えているかで判断する", () => {
     page("");
-    expect(isNewestOrder(document)).toBe(true);
+    expect(isNewestOrder(document, ordered)).toBe(true);
+    expect(isNewestOrder(document, shuffled)).toBe(false);
+    page(
+      '<chip-shape><button role="combobox" aria-selected="false">Más recientes</button></chip-shape>',
+    );
+    expect(isNewestOrder(document, ordered)).toBe(true);
   });
 });
 
@@ -104,6 +123,7 @@ describe("readSnapshot", () => {
         },
       ],
       canLoadMore: false,
+      empty: false,
     });
   });
 
@@ -114,7 +134,50 @@ describe("readSnapshot", () => {
     );
     expect(readSnapshot(document, VIDEOS_PATH)).toMatchObject({
       canLoadMore: true,
+      empty: false,
     });
+  });
+
+  it("再生数は位置ではなく再生数の文言から読む", () => {
+    page(
+      card(
+        "m1",
+        text("55万", "55万回視聴") + text("メンバー限定") + text("1 日前"),
+      ) + card("c1", text("YouTube") + text("1.2万") + text("2 日前")),
+    );
+    expect(readSnapshot(document, VIDEOS_PATH)).toMatchObject({
+      videos: [
+        { id: "m1", views: 550000 },
+        { id: "c1", views: 12000 },
+      ],
+    });
+  });
+
+  it("再生数を読めない動画は除く", () => {
+    page(card("x1", text("YouTube") + text("メンバー限定") + text("1 日前")));
+    expect(readSnapshot(document, VIDEOS_PATH)).toMatchObject({ videos: [] });
+  });
+
+  it("非表示のカードは読まない", () => {
+    page(
+      card("a1", text("55万", "55万回視聴") + text("1 日前")).replace(
+        "<ytd-rich-item-renderer>",
+        "<ytd-rich-item-renderer hidden>",
+      ),
+    );
+    expect(readSnapshot(document, VIDEOS_PATH)).toMatchObject({ videos: [] });
+  });
+
+  it("動画のないチャンネルの案内を見分ける", () => {
+    page(
+      "<ytd-message-renderer>このチャンネルには動画がありません</ytd-message-renderer>",
+    );
+    expect(readSnapshot(document, VIDEOS_PATH)).toMatchObject({
+      videos: [],
+      empty: true,
+    });
+    page("");
+    expect(readSnapshot(document, VIDEOS_PATH)).toMatchObject({ empty: false });
   });
 
   it("経過時間のない動画（配信中・公開予定）は除く", () => {

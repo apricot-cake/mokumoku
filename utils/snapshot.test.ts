@@ -19,6 +19,7 @@ describe("isPageSnapshot", () => {
         channel: "c",
         videos: [video],
         canLoadMore: true,
+        empty: false,
       }),
     ).toBe(true);
   });
@@ -32,6 +33,7 @@ describe("isPageSnapshot", () => {
         channel: "c",
         videos: [{ ...video, views: "1" }],
         canLoadMore: true,
+        empty: false,
       }),
     ).toBe(false);
   });

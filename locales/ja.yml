@@ -5,6 +5,7 @@ panelReloadHint: "開いている場合は、ページを再読み込みして�
 panelSwitchToNewest: "並び順を「新しい順」にしてください"
 panelSwitchToNewestHint: "人気順や古い順では、比べる基準を正しく出せません"
 panelEmpty: "動画を読み込んでいます"
+panelNoVideos: "このチャンネルには動画がありません"
 panelInsufficient: "比べるための動画が足りません。一覧をスクロールして、公開から1日以上たった動画を$1本以上読み込んでください。"
 panelLoadedCount: "読み込み済み $1 本"
 panelRatioDescription: "同じ経過時間の通常の再生数に対する倍率"

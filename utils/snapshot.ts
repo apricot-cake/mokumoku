@@ -18,6 +18,8 @@ export type PageSnapshot =
       readonly videos: readonly VideoEntry[];
       /** 一覧の続きがあり、追加で読み込めるか。 */
       readonly canLoadMore: boolean;
+      /** YouTube が「動画がありません」と表示しているか。 */
+      readonly empty: boolean;
     };
 
 export const SNAPSHOT_REQUEST = "mokumoku:snapshot-request";
@@ -99,6 +101,7 @@ export function isPageSnapshot(value: unknown): value is PageSnapshot {
         typeof snapshot.channel === "string" &&
         Array.isArray(snapshot.videos) &&
         typeof snapshot.canLoadMore === "boolean" &&
+        typeof snapshot.empty === "boolean" &&
         snapshot.videos.every(isVideoEntry)
       );
     default:

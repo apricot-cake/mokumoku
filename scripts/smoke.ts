@@ -189,8 +189,14 @@ await withDevBrowser(async (browser) => {
     if (snapshot.canLoadMore) {
       const scrollBefore = await page.evaluate(() => window.scrollY);
       await panel.select("header select", "halfYear");
-      await panel.waitForSelector("header progress", { timeout: 5000 });
-      console.log(`[mokumoku] 直近6か月を選ぶ: ${await statusText()}`);
+      // 読み込み済みの動画がすでに範囲を超えていれば、読み込みは始まらない。
+      const started = await panel
+        .waitForSelector("header progress", { timeout: 3000 })
+        .then(() => true)
+        .catch(() => false);
+      console.log(
+        `[mokumoku] 直近6か月を選ぶ: ${started ? await statusText() : "読み込み済みのため読み込まない"}`,
+      );
       await panel.waitForFunction(
         () => document.querySelector("header progress") === null,
         { timeout: 60000 },
