@@ -30,9 +30,10 @@ export function injectContentScriptInsteadOfReload(): void {
 }
 
 /**
- * 開発サーバー専用。background や locale を変えると拡張機能全体が読み込み
- * 直され、開いているタブの content script が切れる。background の起動時に
- * 開いている YouTube のタブへ入れ直し、ページを再読み込みせずに使えるようにする。
+ * 開発サーバーとローカル配備ビルド用。拡張機能全体が読み込み直されると
+ * （開発サーバーでの background や locale の変更、配備による自己リロード）、
+ * 開いているタブの content script が切れる。background の起動時に開いている
+ * YouTube のタブへ入れ直し、ページを再読み込みせずに使えるようにする。
  */
 export async function injectContentScriptIntoOpenTabs(): Promise<void> {
   const tabs = await browser.tabs.query({ url: MATCHES });

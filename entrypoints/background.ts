@@ -34,11 +34,13 @@ async function closePanel(owner: PanelOwner): Promise<void> {
 
 export default defineBackground(() => {
   // 開発サーバーでは、コードを変えても開いている YouTube のタブを再読み込み
-  // せずに新しい content script へ差し替える。公開版のビルドには含めない。
-  if (import.meta.env.COMMAND === "serve") {
-    injectContentScriptInsteadOfReload();
+  // せずに新しい content script へ差し替える。
+  if (import.meta.env.COMMAND === "serve") injectContentScriptInsteadOfReload();
+  // 開発サーバーとローカル配備ビルドは、拡張機能が読み込み直されるたびに
+  // 開いている YouTube のタブの content script が切れるので、起動時に入れ直す。
+  // ストアに出す配布用のビルドには含めない。
+  if (import.meta.env.COMMAND === "serve" || __MOKUMOKU_LOCAL_DEPLOY__)
     void injectContentScriptIntoOpenTabs();
-  }
 
   // パネルはツールバーのアイコンを押したタブにだけ開く。全タブ共通の
   // パネル（manifest の default_path）は無効にしておく。

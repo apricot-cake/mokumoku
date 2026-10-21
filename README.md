@@ -54,7 +54,7 @@ Windows では、普段使いの Chrome に入れた拡張機能を、配備の�
 pnpm run deploy:local
 ```
 
-最初の1回だけ、Chrome の `chrome://extensions` でデベロッパーモードをオンにし、`.output\deployed\chrome-mv3` を「パッケージ化されていない拡張機能」として読み込みます。以降は配備のたびに、パネルを開いたときか読み込みを始めたときに新しいビルドへ読み込み直されます。読み込み直すとパネルが閉じるので、アイコンを押して開き直してください。
+最初の1回だけ、Chrome の `chrome://extensions` でデベロッパーモードをオンにし、`.output\deployed\chrome-mv3` を「パッケージ化されていない拡張機能」として読み込みます。以降は配備のたびに、パネルを開いたときか読み込みを始めたときに新しいビルドへ読み込み直されます。読み込み直すとパネルが閉じるので、アイコンを押して開き直してください。開いている YouTube のタブには新しい content script が入るので、ページを再読み込みする必要はありません。
 
 配備ビルドだけが固定の拡張機能 ID と `nativeMessaging` 権限を持ちます。配備時に再読み込み専用の[ネイティブメッセージングホスト](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging)を現在の Windows ユーザーの HKCU へ登録し、拡張機能は配備済みのビルド ID をこのホストに問い合わせます。常時接続や定期的な確認はしません。
 

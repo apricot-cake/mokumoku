@@ -84,7 +84,9 @@ export default defineConfig({
     // パネルで選んだ読み込み範囲を保存する。
     permissions: [
       "storage",
-      ...(localDeploy ? (["nativeMessaging"] as const) : []),
+      // ローカル配備ビルドは、読み込み直したあとに開いているタブへ
+      // content script を入れ直す（scripting）。
+      ...(localDeploy ? (["nativeMessaging", "scripting"] as const) : []),
     ],
     // パネルを開いたページから移ったかを判定するため、タブの URL を読む。
     // content script と同じ範囲なので、インストール時の警告は増えない。
