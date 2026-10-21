@@ -75,3 +75,5 @@ jobs:
       - run: pnpm run check
 
       - run: pnpm run build
+
+      - run: pnpm run build-storybook

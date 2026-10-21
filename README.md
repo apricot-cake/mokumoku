@@ -46,6 +46,20 @@ pnpm run browser:open
 pnpm run smoke
 ```
 
+### Storybook で画面を確認する
+
+```bash
+pnpm storybook
+```
+
+[Storybook](http://127.0.0.1:6010/) を内蔵ブラウザで開くと、本体と同じサイドパネルの画面を確認できます。左側で動画一覧、読み込み中、動画なしなどの状態を選び、上部で日本語・英語とパネル幅を切り替えます。画面へのフィードバックは内蔵ブラウザの「Annotate」で対象を選び、コメントを保存してからチャットで送ってください。
+
+動画と読み込み結果は固定サンプルです。期間の選択、倍率の説明の開閉、サンプルの追加読み込みを操作できます。YouTube や拡張機能との連携は開発用 Chrome と `pnpm run smoke` で確認します。
+
+`pnpm run build-storybook` で `storybook-static/` に静的ビルドを出力できます。
+
+`locales/*.yml` の文言を編集した場合は、Storybook を再起動してください。
+
 ### メインのプロファイルで使う
 
 Windows では、普段使いの Chrome に入れた拡張機能を、配備のたびに自動で新しいビルドへ読み込み直せます。main の作業ツリーで次のコマンドを実行すると、現在のソースをビルドして `.output\deployed\chrome-mv3` へ配備します。
