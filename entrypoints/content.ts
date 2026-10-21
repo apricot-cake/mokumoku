@@ -66,6 +66,10 @@ export default defineContentScript({
           ).finally(() => {
             loading = null;
             cancelLoading = null;
+            // 完了の応答より先に最新の一覧を送り、パネルが古い件数で
+            // 完了を表示しないようにする。
+            if (timer !== undefined) clearTimeout(timer);
+            refresh();
           });
         }
         return loading;

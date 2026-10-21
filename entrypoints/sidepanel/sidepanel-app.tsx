@@ -1,5 +1,4 @@
-import { useMemo, useState } from "react";
-import { browser } from "wxt/browser";
+import { useEffect, useMemo, useRef } from "react";
 import { t } from "../../utils/i18n.ts";
 import { LOAD_UNTIL_MAX_VIDEOS } from "../../utils/load-more.ts";
 import {
@@ -11,13 +10,8 @@ import {
 } from "../../utils/period.ts";
 import { type RankedVideo, rankVideos } from "../../utils/ranking.ts";
 import { MIN_BASELINE_SAMPLES } from "../../utils/score.ts";
-import {
-  isLoadMoreResult,
-  LOAD_CANCEL_REQUEST,
-  LOAD_MORE_REQUEST,
-  type LoadMoreRequest,
-  type PageSnapshot,
-} from "../../utils/snapshot.ts";
+import type { PageSnapshot } from "../../utils/snapshot.ts";
+import { type LoadState, useLoader } from "./use-loader.ts";
 import { usePageSnapshot } from "./use-page-snapshot.ts";
 import { usePeriod } from "./use-period.ts";
 
@@ -38,22 +32,20 @@ function PeriodSelect({
   onChange: (period: PeriodId) => void;
 }) {
   return (
-    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-      {t("panelPeriodLabel")}
-      <select
-        value={value}
-        onChange={(event) => {
-          if (isPeriodId(event.target.value)) onChange(event.target.value);
-        }}
-        className="h-8 rounded-md border bg-background px-2 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-      >
-        {PERIODS.map((period) => (
-          <option key={period.id} value={period.id}>
-            {PERIOD_LABELS[period.id]()}
-          </option>
-        ))}
-      </select>
-    </label>
+    <select
+      aria-label={t("panelPeriodLabel")}
+      value={value}
+      onChange={(event) => {
+        if (isPeriodId(event.target.value)) onChange(event.target.value);
+      }}
+      className="h-8 shrink-0 rounded-md border bg-background px-2 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+    >
+      {PERIODS.map((period) => (
+        <option key={period.id} value={period.id}>
+          {PERIOD_LABELS[period.id]()}
+        </option>
+      ))}
+    </select>
   );
 }
 
@@ -113,87 +105,109 @@ function VideoRow({ video, rank }: { video: RankedVideo; rank?: number }) {
   );
 }
 
-function LoadMoreButton({
-  tabId,
-  canLoadMore,
-  untilAgeMs,
+const linkButtonClass =
+  "shrink-0 rounded text-xs font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring";
+
+/** ヘッダーの下の状態の行。読み込み中・完了・中断のどれでも高さを変えない。 */
+function StatusLine({
+  period,
+  state,
+  loadedCount,
+  shownCount,
   periodLoaded,
+  onCancel,
+  onResume,
 }: {
-  tabId: number;
-  canLoadMore: boolean;
-  /** 表示期間の長さ。指定があれば、期間を超える動画まで続けて読み込む。 */
-  untilAgeMs: number | null;
-  /** 表示期間を超える動画まで、すでに読み込み済みか。 */
+  period: PeriodId;
+  state: LoadState;
+  loadedCount: number;
+  shownCount: number;
   periodLoaded: boolean;
+  onCancel: () => void;
+  onResume: () => void;
 }) {
-  const [state, setState] = useState<"idle" | "loading" | "failed" | "limit">(
-    "idle",
-  );
-
-  async function load(): Promise<void> {
-    setState("loading");
-    const request: LoadMoreRequest =
-      untilAgeMs === null
-        ? { type: LOAD_MORE_REQUEST }
-        : { type: LOAD_MORE_REQUEST, untilAgeMs };
-    const result = await browser.tabs
-      .sendMessage(tabId, request)
-      .catch(() => null);
-    // 増えた動画は content script の更新通知で一覧に届く。
-    setState(
-      !isLoadMoreResult(result) || result === "timeout"
-        ? "failed"
-        : result === "limit"
-          ? "limit"
-          : "idle",
-    );
+  const summary = () =>
+    t("panelPeriodSummary", [PERIOD_LABELS[period](), String(shownCount)]);
+  let text: string;
+  let action: { label: string; onClick: () => void } | null = null;
+  if (state.kind === "loading") {
+    text = t("panelLoadingCount", [String(loadedCount)]);
+    if (state.mode === "period")
+      action = { label: t("panelLoadCancel"), onClick: onCancel };
+  } else if (period === "all") {
+    text = t("panelLoadedCount", [String(loadedCount)]);
+  } else if (
+    state.kind === "done" &&
+    state.mode === "period" &&
+    !periodLoaded &&
+    (state.result === "limit" ||
+      state.result === "cancelled" ||
+      state.result === "timeout")
+  ) {
+    // 期間に届く前に止まったときは、理由と続きの操作を示す。
+    text =
+      state.result === "limit"
+        ? t("panelLoadLimit", [String(LOAD_UNTIL_MAX_VIDEOS)])
+        : state.result === "cancelled"
+          ? t("panelLoadCancelled")
+          : t("panelLoadMoreFailed");
+    action = { label: t("panelLoadResume"), onClick: onResume };
+  } else {
+    text = summary();
   }
-
-  function cancel(): void {
-    void browser.tabs
-      .sendMessage(tabId, { type: LOAD_CANCEL_REQUEST })
-      .catch(() => {});
-  }
-
-  if (!canLoadMore) {
-    return (
-      <p className="text-xs text-muted-foreground">{t("panelAllLoaded")}</p>
-    );
-  }
-  if (untilAgeMs !== null && periodLoaded && state !== "loading") {
-    return (
-      <p className="text-xs text-muted-foreground">{t("panelPeriodLoaded")}</p>
-    );
-  }
-  const buttonClass =
-    "h-8 shrink-0 rounded-md border px-3 text-xs font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60";
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <button
-        type="button"
-        onClick={() => void load()}
-        disabled={state === "loading"}
-        className={buttonClass}
-      >
-        {state === "loading"
-          ? t("panelLoadingMore")
-          : untilAgeMs === null
-            ? t("panelLoadMore")
-            : t("panelLoadPeriod")}
-      </button>
-      {state === "loading" && untilAgeMs !== null ? (
-        <button type="button" onClick={cancel} className={buttonClass}>
-          {t("panelLoadCancel")}
+    <div className="flex h-5 items-center gap-2 text-xs text-muted-foreground">
+      <p role="status" className="min-w-0 truncate">
+        {text}
+      </p>
+      {action ? (
+        <button
+          type="button"
+          onClick={action.onClick}
+          className={linkButtonClass}
+        >
+          {action.label}
         </button>
       ) : null}
-      {state === "failed" ? (
+    </div>
+  );
+}
+
+/** 「すべて」を選んでいるときに一覧の末尾へ置く、1回分の追加読み込み。 */
+function LoadMoreFooter({
+  canLoadMore,
+  state,
+  onLoad,
+}: {
+  canLoadMore: boolean;
+  state: LoadState;
+  onLoad: () => void;
+}) {
+  if (!canLoadMore) {
+    return (
+      <p className="px-4 py-3 text-center text-xs text-muted-foreground">
+        {t("panelAllLoaded")}
+      </p>
+    );
+  }
+  const loading = state.kind === "loading";
+  const failed =
+    state.kind === "done" &&
+    state.mode === "more" &&
+    state.result === "timeout";
+  return (
+    <div className="flex flex-col items-center gap-2 px-4 py-3">
+      <button
+        type="button"
+        onClick={onLoad}
+        disabled={loading}
+        className="h-8 w-full rounded-md border text-xs font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60"
+      >
+        {loading ? t("panelLoadingMore") : t("panelLoadMore")}
+      </button>
+      {failed ? (
         <p role="alert" className="text-xs text-destructive">
           {t("panelLoadMoreFailed")}
-        </p>
-      ) : null}
-      {state === "limit" ? (
-        <p role="status" className="text-xs text-muted-foreground">
-          {t("panelLoadLimit", [String(LOAD_UNTIL_MAX_VIDEOS)])}
         </p>
       ) : null}
     </div>
@@ -210,6 +224,7 @@ function ChannelRanking({
   // 倍率の基準には読み込み済みの全動画を使い、期間は表示だけを絞る。
   const ranking = useMemo(() => rankVideos(snapshot.videos), [snapshot]);
   const [period, setPeriod] = usePeriod();
+  const { state, run, cancel } = useLoader(tabId);
   const shown =
     ranking.kind === "ranked"
       ? ranking.videos.filter((video) => isWithinPeriod(video, period))
@@ -221,26 +236,45 @@ function ChannelRanking({
   const periodLoaded =
     untilAgeMs !== null &&
     snapshot.videos.some((video) => video.ageMs > untilAgeMs);
+
+  // 期間を選んだら（保存済みの期間で開いたときも）、期間を超える動画まで
+  // 自動で読み込む。一覧が増えるたびに始め直さないよう、期間の変化だけを
+  // 契機にし、読み込み状況は最新の値を参照する。
+  const latest = useRef({ canLoadMore: snapshot.canLoadMore, periodLoaded });
+  latest.current = { canLoadMore: snapshot.canLoadMore, periodLoaded };
+  useEffect(() => {
+    const maxAgeMs = periodMaxAgeMs(period);
+    const { canLoadMore, periodLoaded } = latest.current;
+    if (maxAgeMs !== null && canLoadMore && !periodLoaded) void run(maxAgeMs);
+  }, [period, run]);
+
   return (
     <div className="flex flex-col">
-      <header className="sticky top-0 z-10 flex flex-col gap-2 border-b bg-background px-4 py-3">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="truncate text-base font-semibold text-foreground">
+      <header className="sticky top-0 z-10 flex flex-col gap-1 border-b bg-background px-4 pt-3 pb-2">
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="min-w-0 truncate text-base font-semibold text-foreground">
             {snapshot.channel}
           </h1>
-          <p className="text-xs text-muted-foreground">
-            {t("panelLoadedCount", [String(snapshot.videos.length)])}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <LoadMoreButton
-            tabId={tabId}
-            canLoadMore={snapshot.canLoadMore}
-            untilAgeMs={untilAgeMs}
-            periodLoaded={periodLoaded}
-          />
           <PeriodSelect value={period} onChange={setPeriod} />
         </div>
+        <StatusLine
+          period={period}
+          state={state}
+          loadedCount={snapshot.videos.length}
+          shownCount={shown.length}
+          periodLoaded={periodLoaded}
+          onCancel={cancel}
+          onResume={() => {
+            if (untilAgeMs !== null) void run(untilAgeMs);
+          }}
+        />
+        {state.kind === "loading" ? (
+          // 進み具合は事前に分からないので、値を持たない不確定の進捗バーにする。
+          <progress
+            aria-label={t("panelLoadingMore")}
+            className="absolute inset-x-0 bottom-0 h-0.5 w-full"
+          />
+        ) : null}
       </header>
       {snapshot.videos.length === 0 ? (
         <Notice title={t("panelEmpty")} />
@@ -274,6 +308,13 @@ function ChannelRanking({
           ) : null}
         </>
       )}
+      {period === "all" ? (
+        <LoadMoreFooter
+          canLoadMore={snapshot.canLoadMore}
+          state={state}
+          onLoad={() => void run(null)}
+        />
+      ) : null}
     </div>
   );
 }

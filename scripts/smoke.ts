@@ -116,7 +116,14 @@ await withDevBrowser(async (browser) => {
     );
     for (const row of shown.rows) console.log(`  ${row}`);
 
-    // パネルの「さらに読み込む」で動画が増え、ページのスクロール位置が保たれることを確かめる。
+    const statusText = () =>
+      panel.$eval(
+        'header [role="status"]',
+        (element) => element.textContent ?? "",
+      );
+
+    // 「すべて」のときは、一覧の末尾の「さらに読み込む」で動画が増え、
+    // ページのスクロール位置が保たれることを確かめる。
     if (snapshot.canLoadMore) {
       const rowCount = () =>
         panel.evaluate(() => document.querySelectorAll("li").length);
@@ -126,7 +133,14 @@ await withDevBrowser(async (browser) => {
         window.scrollTo(0, 400);
         return window.scrollY;
       });
-      await panel.click("header button");
+      await panel.evaluate(() => {
+        const button = [...document.querySelectorAll("button")].find(
+          (element) =>
+            /さらに読み込む|Load more/.test(element.textContent ?? ""),
+        );
+        if (!button) throw new Error("さらに読み込むボタンがありません。");
+        button.click();
+      });
       await panel.waitForFunction(
         (before) => document.querySelectorAll("li").length > before,
         { timeout: 15000 },
@@ -143,43 +157,25 @@ await withDevBrowser(async (browser) => {
       );
     }
 
-    // 表示期間を選ぶと、期間を超える動画まで続けて読み込む。
+    // 表示期間を選ぶだけで、期間を超える動画まで自動で読み込む。
     if (snapshot.canLoadMore) {
-      await panel.select("header select", "halfYear");
-      const loadedBefore = await panel.$$eval("li", (rows) => rows.length);
-      const label = await panel.$eval(
-        "header button",
-        (button) => button.textContent ?? "",
-      );
       const scrollBefore = await page.evaluate(() => window.scrollY);
-      await panel.click("header button");
-      // 期間内を読み込み終えるとボタンが消え、読み込み済みの案内に変わる。
+      await panel.select("header select", "halfYear");
+      await panel.waitForSelector("header progress", { timeout: 5000 });
+      console.log(`[mokumoku] 6か月以内を選ぶ: ${await statusText()}`);
       await panel.waitForFunction(
-        () =>
-          [...document.querySelectorAll("header button")].every(
-            (button) => !/中止|Cancel/.test(button.textContent ?? ""),
-          ) && document.querySelector("header button") === null,
+        () => document.querySelector("header progress") === null,
         { timeout: 60000 },
       );
-      const loadedAfter = await panel.$$eval("li", (rows) => rows.length);
-      const headerText = await panel.$eval(
-        "header",
-        (header) => header.textContent ?? "",
-      );
-      if (
-        !/期間内の動画はすべて読み込みました|All videos in this period/.test(
-          headerText,
-        )
-      )
-        throw new Error(`期間までの読み込みが完了していません: ${headerText}`);
+      const summary = await statusText();
+      if (!/6か月以内の動画|Past 6 months/.test(summary))
+        throw new Error(`期間までの読み込みが完了していません: ${summary}`);
       const scrollAfter = await page.evaluate(() => window.scrollY);
       if (scrollAfter !== scrollBefore)
         throw new Error(
           `期間までの読み込み後にスクロール位置が戻っていません: ${scrollBefore} → ${scrollAfter}`,
         );
-      console.log(
-        `[mokumoku] ${label}（6か月以内）: 表示 ${loadedBefore} 件 → ${loadedAfter} 件（${headerText}）`,
-      );
+      console.log(`[mokumoku] 読み込み完了: ${summary}`);
     }
 
     // 表示期間を絞ると、それより古い動画が一覧から消え、非表示の件数が出る。
@@ -198,7 +194,7 @@ await withDevBrowser(async (browser) => {
     }));
     if (!filtered.note) throw new Error("非表示にした件数が表示されません。");
     console.log(
-      `[mokumoku] 1か月以内に絞る: ${rankedBefore} 件 → ${filtered.count} 件（${filtered.note}）`,
+      `[mokumoku] 1か月以内に絞る: ${rankedBefore} 件 → ${filtered.count} 件（${await statusText()}、${filtered.note}）`,
     );
     await setPeriod("all");
   } finally {
