@@ -94,9 +94,9 @@ async function isExtensionEnabled(
  * ビルド済みの拡張機能を CDP で読み込む。拡張機能 ID は読み込み元のパスで
  * 決まる。
  *
- * CDP で読み込んだ拡張機能は `runtime.reload()` で無効になり、その状態が
- * プロファイルに残る。無効のまま読み込んでも有効に戻らないので、外してから
- * 読み込み直す。
+ * 同じパスを再インストールするだけでは、manifest が更新されても service
+ * worker が以前のソースを実行する場合がある。いったん外して読み込み直し、
+ * キャッシュされた background と無効化された拡張機能をどちらも残さない。
  */
 export async function loadExtension(
   browser: Browser,
@@ -110,11 +110,8 @@ export async function loadExtension(
         : "拡張機能のビルドがありません。先に pnpm run build を実行してください。",
     );
   const extensionId = await browser.installExtension(output);
-  if ((await isExtensionEnabled(browser, extensionId)) === false) {
-    await browser.uninstallExtension(extensionId);
-    await browser.installExtension(output);
-  }
-  return extensionId;
+  await browser.uninstallExtension(extensionId);
+  return await browser.installExtension(output);
 }
 
 const RELOAD_POLL_MS = 500;
