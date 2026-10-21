@@ -8,6 +8,8 @@ import { isPageSnapshot, SNAPSHOT_REQUEST } from "../utils/snapshot.ts";
 import { loadExtension, withDevBrowser } from "./managed-dev-browser.ts";
 
 const DEFAULT_URL = "https://www.youtube.com/@GoogleJapan/videos";
+// パネルを閉じる確認で移る先。企業の公式チャンネルの動画タブ。
+const OTHER_PAGE_URL = "https://www.youtube.com/@YouTube/videos";
 const url = process.argv[2] ?? DEFAULT_URL;
 const CARD =
   "ytd-browse:not([hidden]) ytd-rich-grid-renderer ytd-rich-item-renderer";
@@ -71,27 +73,40 @@ await withDevBrowser(async (browser) => {
       );
     }
 
-    // ツールバーのアイコンと同じ経路でサイドパネルを開き、一覧の中身を確かめる。
+    // ツールバーのアイコンと同じ経路でサイドパネルを開く。
     const root = await browser.target().createCDPSession();
-    // 既定の一覧はタブの target を含まないので、種類を指定して取る。
-    const { targetInfos } = await root.send("Target.getTargets", {
-      filter: [{ type: "tab" }],
-    });
-    const [tab, ...others] = targetInfos.filter(
-      (info) => info.url === page.url(),
-    );
-    if (!tab || others.length > 0)
-      throw new Error("検証用タブを一意に特定できません。");
-    await root.send("Extensions.triggerAction", {
-      id: extensionId,
-      targetId: tab.targetId,
-    });
-    const panelTarget = await browser.waitForTarget(
-      (target) =>
-        target.url() === `chrome-extension://${extensionId}/sidepanel.html`,
-      { timeout: 10000 },
-    );
-    const panel = await panelTarget.asPage();
+    const panelUrl = `chrome-extension://${extensionId}/sidepanel.html`;
+    const isPanelOpen = () =>
+      browser.targets().some((target) => target.url() === panelUrl);
+    const openPanel = async () => {
+      // 既定の一覧はタブの target を含まないので、種類を指定して取る。
+      const { targetInfos } = await root.send("Target.getTargets", {
+        filter: [{ type: "tab" }],
+      });
+      const [tab, ...others] = targetInfos.filter(
+        (info) => info.url === page.url(),
+      );
+      if (!tab || others.length > 0)
+        throw new Error("検証用タブを一意に特定できません。");
+      await root.send("Extensions.triggerAction", {
+        id: extensionId,
+        targetId: tab.targetId,
+      });
+      const target = await browser.waitForTarget(
+        (candidate) => candidate.url() === panelUrl,
+        { timeout: 10000 },
+      );
+      return await target.asPage();
+    };
+    const waitPanelClosed = async (reason: string) => {
+      const deadline = Date.now() + 5000;
+      while (isPanelOpen()) {
+        if (Date.now() > deadline)
+          throw new Error(`${reason}でパネルが閉じません。`);
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    };
+    const panel = await openPanel();
     const errors: string[] = [];
     panel.on("pageerror", (error) => errors.push(String(error)));
     await panel.waitForSelector("ol > li", { timeout: 10000 });
@@ -210,6 +225,40 @@ await withDevBrowser(async (browser) => {
       `[mokumoku] 直近1か月に絞る: ${rankedBefore} 件 → ${filtered.count} 件（${await statusText()}、${filtered.note}）`,
     );
     await setPeriod("all");
+
+    // 同じチャンネル内の移動（「ホーム」タブへ）ではパネルを閉じない。
+    const movedInChannel = await page.evaluate(() => {
+      const home = document.querySelector<HTMLElement>(
+        "ytd-browse:not([hidden]) yt-tab-shape",
+      );
+      if (!home || home.getAttribute("aria-selected") === "true") return false;
+      home.click();
+      return true;
+    });
+    if (movedInChannel) {
+      await page.waitForFunction(() => !location.pathname.endsWith("/videos"), {
+        timeout: 10000,
+      });
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (!isPanelOpen())
+        throw new Error("同じチャンネル内の移動でパネルが閉じました。");
+      console.log(
+        `[mokumoku] 同じチャンネル内の移動（${new URL(page.url()).pathname}）: パネルは開いたまま`,
+      );
+    }
+
+    // 別のページへ移ったら閉じる。
+    await page.goto(OTHER_PAGE_URL, { waitUntil: "domcontentloaded" });
+    await waitPanelClosed("別のページへの移動");
+    console.log("[mokumoku] 別のページへの移動: パネルが閉じた");
+
+    // 別のタブに切り替えたら閉じる。
+    await openPanel();
+    const other = await browser.newPage();
+    await other.bringToFront();
+    await waitPanelClosed("別のタブへの切り替え");
+    console.log("[mokumoku] 別のタブへの切り替え: パネルが閉じた");
+    await other.close();
   } finally {
     await page.close();
   }

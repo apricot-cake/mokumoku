@@ -60,6 +60,9 @@ export default defineConfig({
     description: "__MSG_extensionDescription__",
     // パネルで選んだ読み込み範囲を保存する。
     permissions: ["storage"],
+    // パネルを開いたページから移ったかを判定するため、タブの URL を読む。
+    // content script と同じ範囲なので、インストール時の警告は増えない。
+    host_permissions: ["https://www.youtube.com/*"],
     action: {
       default_title: "mokumoku",
     },
