@@ -14,11 +14,18 @@ const METADATA_TEXT =
   ".ytContentMetadataViewModelMetadataText, #metadata-line span, .inline-metadata-item";
 const SORT_TAB = `${BROWSE} chip-shape button[role="tab"], ${BROWSE} yt-chip-cloud-chip-renderer`;
 
-const CHANNEL_VIDEOS_PATH =
-  /^\/(?:@[^/]+|channel\/[^/]+|c\/[^/]+|user\/[^/]+)\/(?:videos|streams)\/?$/;
+const CHANNEL_PATH =
+  /^\/(?:@[^/]+|channel\/[^/]+|c\/[^/]+|user\/[^/]+)(\/(?:videos|streams))?\/?$/;
 
-export function isChannelVideosPath(pathname: string): boolean {
-  return CHANNEL_VIDEOS_PATH.test(pathname);
+/**
+ * チャンネルの動画一覧になりうるパスか。「動画」「ライブ」タブのほか、
+ * 「ホーム」タブのないチャンネルではトップの URL に「動画」タブが表示される。
+ * トップが「ホーム」かどうかはパスでは決まらないので、"root" として返す。
+ */
+export function channelPathKind(pathname: string): "list" | "root" | null {
+  const match = CHANNEL_PATH.exec(pathname);
+  if (!match) return null;
+  return match[1] ? "list" : "root";
 }
 
 /**
@@ -79,7 +86,13 @@ export function readChannelName(doc: Document): string {
 }
 
 export function readSnapshot(doc: Document, pathname: string): PageSnapshot {
-  if (!isChannelVideosPath(pathname)) return { kind: "unsupported" };
+  const pathKind = channelPathKind(pathname);
+  // 「ホーム」タブは動画一覧のグリッドではなく棚を並べるので、グリッドの有無で見分ける。
+  if (
+    pathKind === null ||
+    (pathKind === "root" && doc.querySelector(GRID) === null)
+  )
+    return { kind: "unsupported" };
   const channel = readChannelName(doc);
   if (!isNewestOrder(doc)) return { kind: "not-newest", channel };
   const seen = new Set<string>();

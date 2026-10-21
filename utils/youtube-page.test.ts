@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import {
-  isChannelVideosPath,
+  channelPathKind,
   isNewestOrder,
   readSnapshot,
 } from "./youtube-page.ts";
@@ -41,16 +41,18 @@ beforeEach(() => {
   document.title = "YouTube - YouTube";
 });
 
-describe("isChannelVideosPath", () => {
+describe("channelPathKind", () => {
   it.each([
-    ["/@YouTube/videos", true],
-    ["/@YouTube/streams", true],
-    ["/channel/UC123/videos/", true],
-    ["/@YouTube", false],
-    ["/@YouTube/shorts", false],
-    ["/watch", false],
+    ["/@YouTube/videos", "list"],
+    ["/@YouTube/streams", "list"],
+    ["/channel/UC123/videos/", "list"],
+    ["/@YouTube", "root"],
+    ["/channel/UC123/", "root"],
+    ["/@YouTube/shorts", null],
+    ["/@YouTube/featured", null],
+    ["/watch", null],
   ])("%s", (path, expected) => {
-    expect(isChannelVideosPath(path)).toBe(expected);
+    expect(channelPathKind(path)).toBe(expected);
   });
 });
 
@@ -125,6 +127,22 @@ describe("readSnapshot", () => {
     expect(readSnapshot(document, VIDEOS_PATH)).toEqual({
       kind: "not-newest",
       channel: "YouTube",
+    });
+  });
+
+  it("ホームタブのないチャンネルは、トップの URL でも動画一覧を読む", () => {
+    page(card("a1", text("55万", "55万回視聴") + text("1 日前")));
+    expect(readSnapshot(document, "/@YouTube")).toMatchObject({
+      kind: "ready",
+      videos: [{ id: "a1" }],
+    });
+  });
+
+  it("トップの URL がホームタブなら対象外", () => {
+    document.body.innerHTML =
+      "<ytd-browse><ytd-section-list-renderer><ytd-shelf-renderer></ytd-shelf-renderer></ytd-section-list-renderer></ytd-browse>";
+    expect(readSnapshot(document, "/@YouTube")).toEqual({
+      kind: "unsupported",
     });
   });
 
