@@ -4,6 +4,10 @@ import {
   injectContentScriptIntoOpenTabs,
 } from "../utils/dev-content-script-swap.ts";
 import {
+  CHECK_LOCAL_BUILD,
+  checkLocalBuild,
+} from "../utils/local-build-reload.ts";
+import {
   hasLeftPanelPage,
   isPanelOwner,
   type PanelOwner,
@@ -51,6 +55,10 @@ export default defineBackground(() => {
       enabled: true,
     });
     const opened = browser.sidePanel.open({ tabId });
+    // ローカル配備ビルドは、パネルを開くたびに配備済みのビルドを問い合わせる。
+    // 新しいビルドがあれば自分を読み込み直し、パネルは閉じる。開き直すと
+    // 新しいビルドを使える。
+    if (__MOKUMOKU_LOCAL_DEPLOY__) void checkLocalBuild(__MOKUMOKU_BUILD_ID__);
     void (async () => {
       const previous = await readOwner();
       if (previous && previous.tabId !== tabId) await closePanel(previous);
@@ -64,6 +72,19 @@ export default defineBackground(() => {
     })().catch((error: unknown) => {
       console.error("mokumoku のパネルを開けませんでした。", error);
     });
+  });
+
+  // パネルの操作の直前の確認。パネルからの問い合わせだけを受け付ける。
+  browser.runtime.onMessage.addListener((message, sender) => {
+    if (
+      (message as { type?: unknown })?.type !== CHECK_LOCAL_BUILD ||
+      sender.tab !== undefined ||
+      sender.url !== browser.runtime.getURL(`/${PANEL_PATH}`)
+    )
+      return;
+    return __MOKUMOKU_LOCAL_DEPLOY__
+      ? checkLocalBuild(__MOKUMOKU_BUILD_ID__)
+      : Promise.resolve(true);
   });
 
   // 同じウィンドウで別のタブに切り替えたら閉じる。

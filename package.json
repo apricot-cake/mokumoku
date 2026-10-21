@@ -10,6 +10,7 @@
     "dev": "wxt",
     "build": "wxt build",
     "zip": "wxt zip",
+    "deploy:local": "node scripts/deploy-extension.ts",
     "browser:open": "node scripts/dev-browser.ts",
     "browser:dev": "node scripts/dev-browser.ts --dev",
     "browser:status": "node scripts/dev-browser.ts --print",

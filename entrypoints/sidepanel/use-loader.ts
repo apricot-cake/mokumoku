@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { browser } from "wxt/browser";
+import { checkPanelBuild } from "../../utils/local-build-reload.ts";
 import {
   isLoadMoreResult,
   LOAD_CANCEL_REQUEST,
@@ -41,6 +42,9 @@ export function useLoader(tabId: number) {
         cancel();
         await inflight.current;
       }
+      // ローカル配備ビルドでは、読み込みの前に新しいビルドを確かめる。新しい
+      // ビルドがあれば拡張機能が読み込み直されてパネルが閉じるので、進めない。
+      if (!(await checkPanelBuild())) return;
       const mode: LoadMode = untilAgeMs === null ? "more" : "period";
       const request: LoadMoreRequest =
         untilAgeMs === null
