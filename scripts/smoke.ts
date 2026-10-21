@@ -143,6 +143,45 @@ await withDevBrowser(async (browser) => {
       );
     }
 
+    // 表示期間を選ぶと、期間を超える動画まで続けて読み込む。
+    if (snapshot.canLoadMore) {
+      await panel.select("header select", "halfYear");
+      const loadedBefore = await panel.$$eval("li", (rows) => rows.length);
+      const label = await panel.$eval(
+        "header button",
+        (button) => button.textContent ?? "",
+      );
+      const scrollBefore = await page.evaluate(() => window.scrollY);
+      await panel.click("header button");
+      // 期間内を読み込み終えるとボタンが消え、読み込み済みの案内に変わる。
+      await panel.waitForFunction(
+        () =>
+          [...document.querySelectorAll("header button")].every(
+            (button) => !/中止|Cancel/.test(button.textContent ?? ""),
+          ) && document.querySelector("header button") === null,
+        { timeout: 60000 },
+      );
+      const loadedAfter = await panel.$$eval("li", (rows) => rows.length);
+      const headerText = await panel.$eval(
+        "header",
+        (header) => header.textContent ?? "",
+      );
+      if (
+        !/期間内の動画はすべて読み込みました|All videos in this period/.test(
+          headerText,
+        )
+      )
+        throw new Error(`期間までの読み込みが完了していません: ${headerText}`);
+      const scrollAfter = await page.evaluate(() => window.scrollY);
+      if (scrollAfter !== scrollBefore)
+        throw new Error(
+          `期間までの読み込み後にスクロール位置が戻っていません: ${scrollBefore} → ${scrollAfter}`,
+        );
+      console.log(
+        `[mokumoku] ${label}（6か月以内）: 表示 ${loadedBefore} 件 → ${loadedAfter} 件（${headerText}）`,
+      );
+    }
+
     // 表示期間を絞ると、それより古い動画が一覧から消え、非表示の件数が出る。
     const rankedBefore = await panel.$$eval("ol > li", (rows) => rows.length);
     await panel.select("header select", "month");

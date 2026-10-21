@@ -17,10 +17,15 @@ export function isPeriodId(value: unknown): value is PeriodId {
   return PERIODS.some((period) => period.id === value);
 }
 
+/** 期間の長さ。「すべて」は null。 */
+export function periodMaxAgeMs(period: PeriodId): number | null {
+  return PERIODS.find((item) => item.id === period)?.maxAgeMs ?? null;
+}
+
 export function isWithinPeriod(
   video: { readonly ageMs: number },
   period: PeriodId,
 ): boolean {
-  const maxAgeMs = PERIODS.find((item) => item.id === period)?.maxAgeMs;
-  return maxAgeMs == null || video.ageMs <= maxAgeMs;
+  const maxAgeMs = periodMaxAgeMs(period);
+  return maxAgeMs === null || video.ageMs <= maxAgeMs;
 }

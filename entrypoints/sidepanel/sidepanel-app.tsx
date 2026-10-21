@@ -1,17 +1,21 @@
 import { useMemo, useState } from "react";
 import { browser } from "wxt/browser";
 import { t } from "../../utils/i18n.ts";
+import { LOAD_UNTIL_MAX_VIDEOS } from "../../utils/load-more.ts";
 import {
   isPeriodId,
   isWithinPeriod,
   PERIODS,
   type PeriodId,
+  periodMaxAgeMs,
 } from "../../utils/period.ts";
 import { type RankedVideo, rankVideos } from "../../utils/ranking.ts";
 import { MIN_BASELINE_SAMPLES } from "../../utils/score.ts";
 import {
   isLoadMoreResult,
+  LOAD_CANCEL_REQUEST,
   LOAD_MORE_REQUEST,
+  type LoadMoreRequest,
   type PageSnapshot,
 } from "../../utils/snapshot.ts";
 import { usePageSnapshot } from "./use-page-snapshot.ts";
@@ -112,21 +116,43 @@ function VideoRow({ video, rank }: { video: RankedVideo; rank?: number }) {
 function LoadMoreButton({
   tabId,
   canLoadMore,
+  untilAgeMs,
+  periodLoaded,
 }: {
   tabId: number;
   canLoadMore: boolean;
+  /** 表示期間の長さ。指定があれば、期間を超える動画まで続けて読み込む。 */
+  untilAgeMs: number | null;
+  /** 表示期間を超える動画まで、すでに読み込み済みか。 */
+  periodLoaded: boolean;
 }) {
-  const [state, setState] = useState<"idle" | "loading" | "failed">("idle");
+  const [state, setState] = useState<"idle" | "loading" | "failed" | "limit">(
+    "idle",
+  );
 
   async function load(): Promise<void> {
     setState("loading");
+    const request: LoadMoreRequest =
+      untilAgeMs === null
+        ? { type: LOAD_MORE_REQUEST }
+        : { type: LOAD_MORE_REQUEST, untilAgeMs };
     const result = await browser.tabs
-      .sendMessage(tabId, { type: LOAD_MORE_REQUEST })
+      .sendMessage(tabId, request)
       .catch(() => null);
     // 増えた動画は content script の更新通知で一覧に届く。
     setState(
-      isLoadMoreResult(result) && result !== "timeout" ? "idle" : "failed",
+      !isLoadMoreResult(result) || result === "timeout"
+        ? "failed"
+        : result === "limit"
+          ? "limit"
+          : "idle",
     );
+  }
+
+  function cancel(): void {
+    void browser.tabs
+      .sendMessage(tabId, { type: LOAD_CANCEL_REQUEST })
+      .catch(() => {});
   }
 
   if (!canLoadMore) {
@@ -134,19 +160,40 @@ function LoadMoreButton({
       <p className="text-xs text-muted-foreground">{t("panelAllLoaded")}</p>
     );
   }
+  if (untilAgeMs !== null && periodLoaded && state !== "loading") {
+    return (
+      <p className="text-xs text-muted-foreground">{t("panelPeriodLoaded")}</p>
+    );
+  }
+  const buttonClass =
+    "h-8 shrink-0 rounded-md border px-3 text-xs font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60";
   return (
-    <div className="flex items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <button
         type="button"
         onClick={() => void load()}
         disabled={state === "loading"}
-        className="h-8 shrink-0 rounded-md border px-3 text-xs font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60"
+        className={buttonClass}
       >
-        {state === "loading" ? t("panelLoadingMore") : t("panelLoadMore")}
+        {state === "loading"
+          ? t("panelLoadingMore")
+          : untilAgeMs === null
+            ? t("panelLoadMore")
+            : t("panelLoadPeriod")}
       </button>
+      {state === "loading" && untilAgeMs !== null ? (
+        <button type="button" onClick={cancel} className={buttonClass}>
+          {t("panelLoadCancel")}
+        </button>
+      ) : null}
       {state === "failed" ? (
         <p role="alert" className="text-xs text-destructive">
           {t("panelLoadMoreFailed")}
+        </p>
+      ) : null}
+      {state === "limit" ? (
+        <p role="status" className="text-xs text-muted-foreground">
+          {t("panelLoadLimit", [String(LOAD_UNTIL_MAX_VIDEOS)])}
         </p>
       ) : null}
     </div>
@@ -169,6 +216,11 @@ function ChannelRanking({
       : [];
   const hiddenCount =
     ranking.kind === "ranked" ? ranking.videos.length - shown.length : 0;
+  const untilAgeMs = periodMaxAgeMs(period);
+  // 新しい順なので、期間を超える動画が1本でもあれば期間内はすべて読み込み済み。
+  const periodLoaded =
+    untilAgeMs !== null &&
+    snapshot.videos.some((video) => video.ageMs > untilAgeMs);
   return (
     <div className="flex flex-col">
       <header className="sticky top-0 z-10 flex flex-col gap-2 border-b bg-background px-4 py-3">
@@ -181,7 +233,12 @@ function ChannelRanking({
           </p>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <LoadMoreButton tabId={tabId} canLoadMore={snapshot.canLoadMore} />
+          <LoadMoreButton
+            tabId={tabId}
+            canLoadMore={snapshot.canLoadMore}
+            untilAgeMs={untilAgeMs}
+            periodLoaded={periodLoaded}
+          />
           <PeriodSelect value={period} onChange={setPeriod} />
         </div>
       </header>

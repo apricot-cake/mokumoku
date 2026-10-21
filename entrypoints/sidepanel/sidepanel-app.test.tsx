@@ -160,6 +160,66 @@ describe("SidepanelApp", () => {
     expect(container.querySelectorAll("ol > li")).toHaveLength(4);
   });
 
+  it("期間を選ぶと、期間を超える動画まで続けて読み込み、途中で中止できる", async () => {
+    await fakeBrowser.storage.local.set({ period: "month" });
+    const snapshot: PageSnapshot = {
+      kind: "ready",
+      channel: "Example",
+      canLoadMore: true,
+      videos: [video("a", 100, 2)],
+    };
+    await render(snapshot);
+    await act(async () => {});
+    let finish: (value: string) => void = () => {};
+    const send = vi.spyOn(fakeBrowser.tabs, "sendMessage").mockImplementation(((
+      _tabId: number,
+      message: { type: string },
+    ) =>
+      message.type === "mokumoku:load-more"
+        ? new Promise<string>((resolve) => {
+            finish = resolve;
+          })
+        : Promise.resolve(undefined)) as typeof fakeBrowser.tabs.sendMessage);
+    const button = container.querySelector("header button");
+    expect(button?.textContent).toBe("Load all in period");
+    await act(async () => {
+      (button as HTMLButtonElement).click();
+    });
+    expect(send).toHaveBeenCalledWith(1, {
+      type: "mokumoku:load-more",
+      untilAgeMs: 30.4375 * DAY,
+    });
+    const cancel = [...container.querySelectorAll("header button")].find(
+      (element) => element.textContent === "Cancel",
+    );
+    await act(async () => {
+      (cancel as HTMLButtonElement).click();
+    });
+    expect(send).toHaveBeenCalledWith(1, { type: "mokumoku:load-cancel" });
+    await act(async () => {
+      finish("limit");
+    });
+    expect(container.querySelector('[role="status"]')?.textContent).toContain(
+      "Stopped after loading 500 videos",
+    );
+  });
+
+  it("期間を超える動画まで読み込み済みなら、そう示す", async () => {
+    await fakeBrowser.storage.local.set({ period: "week" });
+    const snapshot: PageSnapshot = {
+      kind: "ready",
+      channel: "Example",
+      canLoadMore: true,
+      videos: [video("a", 100, 2), video("b", 100, 10)],
+    };
+    await render(snapshot);
+    await act(async () => {});
+    expect(container.querySelector("header button")).toBeNull();
+    expect(container.textContent).toContain(
+      "All videos in this period are loaded",
+    );
+  });
+
   it("最後まで読み込んだらボタンを出さない", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",

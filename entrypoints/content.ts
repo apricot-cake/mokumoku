@@ -1,7 +1,8 @@
 import { browser } from "wxt/browser";
-import { loadMore } from "../utils/load-more.ts";
+import { loadMore, loadUntil } from "../utils/load-more.ts";
 import {
-  LOAD_MORE_REQUEST,
+  isLoadMoreRequest,
+  LOAD_CANCEL_REQUEST,
   type LoadMoreResult,
   type PageSnapshot,
   SNAPSHOT_REQUEST,
@@ -22,6 +23,7 @@ export default defineContentScript({
     let timer: number | undefined;
     // 読み込み中に重ねて頼まれたら、同じ読み込みの結果を返す。
     let loading: Promise<LoadMoreResult> | null = null;
+    let cancelLoading: AbortController | null = null;
 
     function refresh(): void {
       timer = undefined;
@@ -53,12 +55,25 @@ export default defineContentScript({
     ctx.addEventListener(document, "yt-navigate-finish", scheduleRefresh);
 
     browser.runtime.onMessage.addListener((message) => {
-      const type = (message as { type?: unknown })?.type;
-      if (type === LOAD_MORE_REQUEST) {
-        loading ??= loadMore(document).finally(() => {
-          loading = null;
-        });
+      if (isLoadMoreRequest(message)) {
+        if (loading === null) {
+          const controller = new AbortController();
+          cancelLoading = controller;
+          loading = (
+            message.untilAgeMs === undefined
+              ? loadMore(document)
+              : loadUntil(document, message.untilAgeMs, controller.signal)
+          ).finally(() => {
+            loading = null;
+            cancelLoading = null;
+          });
+        }
         return loading;
+      }
+      const type = (message as { type?: unknown })?.type;
+      if (type === LOAD_CANCEL_REQUEST) {
+        cancelLoading?.abort();
+        return;
       }
       if (type !== SNAPSHOT_REQUEST) return;
       if (timer !== undefined) {

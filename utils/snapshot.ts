@@ -23,12 +23,50 @@ export type PageSnapshot =
 export const SNAPSHOT_REQUEST = "mokumoku:snapshot-request";
 export const SNAPSHOT_UPDATE = "mokumoku:snapshot";
 export const LOAD_MORE_REQUEST = "mokumoku:load-more";
+export const LOAD_CANCEL_REQUEST = "mokumoku:load-cancel";
 
-/** 追加読み込みの結果。end は一覧の最後まで読み込み済み。 */
-export type LoadMoreResult = "loaded" | "end" | "timeout";
+export interface LoadMoreRequest {
+  readonly type: typeof LOAD_MORE_REQUEST;
+  /**
+   * 指定すると、読み込み済みの一番古い動画がこの経過時間を超えるまで続けて
+   * 読み込む。省略すると1回分だけ読み込む。
+   */
+  readonly untilAgeMs?: number;
+}
+
+/**
+ * 追加読み込みの結果。end は一覧の最後まで読み込み済み、reached は指定の
+ * 経過時間を超える動画まで読み込み済み、limit は1回の操作の上限に到達。
+ */
+export type LoadMoreResult =
+  | "loaded"
+  | "end"
+  | "timeout"
+  | "reached"
+  | "limit"
+  | "cancelled";
+
+const LOAD_MORE_RESULTS: readonly LoadMoreResult[] = [
+  "loaded",
+  "end",
+  "timeout",
+  "reached",
+  "limit",
+  "cancelled",
+];
 
 export function isLoadMoreResult(value: unknown): value is LoadMoreResult {
-  return value === "loaded" || value === "end" || value === "timeout";
+  return LOAD_MORE_RESULTS.includes(value as LoadMoreResult);
+}
+
+export function isLoadMoreRequest(value: unknown): value is LoadMoreRequest {
+  if (typeof value !== "object" || value === null) return false;
+  const request = value as Partial<LoadMoreRequest>;
+  return (
+    request.type === LOAD_MORE_REQUEST &&
+    (request.untilAgeMs === undefined ||
+      (typeof request.untilAgeMs === "number" && request.untilAgeMs > 0))
+  );
 }
 
 export interface SnapshotUpdate {
