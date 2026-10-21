@@ -109,8 +109,37 @@ export function installReloadHost({
       ["add", registryKey(), "/ve", "/t", "REG_SZ", "/d", manifest, "/f"],
       { stdio: "ignore" },
     );
+    assertVisibleToChrome(manifest);
   }
   return { manifest, launcher, host };
+}
+
+/**
+ * 登録が Chrome から見えるかを確かめる。サンドボックスやパッケージアプリの
+ * 中から実行すると、HKCU への書き込みがその中だけの領域に振り向けられ、
+ * 同じプロセスからは読めても Chrome からは見えない。WMI の StdRegProv は
+ * 別のプロセスでレジストリを読むので、振り向けの影響を受けない。
+ */
+function assertVisibleToChrome(manifest: string): void {
+  const script = [
+    "$r = Invoke-CimMethod -Namespace root/default -ClassName StdRegProv",
+    "-MethodName GetStringValue -Arguments @{",
+    "hDefKey = [uint32]2147483649;",
+    `sSubKeyName = 'Software\\Google\\Chrome\\NativeMessagingHosts\\${HOST_NAME}';`,
+    "sValueName = '' };",
+    "[Console]::Out.Write($r.sValue)",
+  ].join(" ");
+  const actual = execFileSync(
+    "powershell.exe",
+    ["-NoProfile", "-NonInteractive", "-Command", script],
+    { encoding: "utf8" },
+  ).trim();
+  if (actual !== manifest)
+    throw new Error(
+      "Native Host を登録しましたが、Chrome から見えるレジストリに反映されていません。" +
+        "レジストリへの書き込みが隔離された環境で実行しています。隔離されていないターミナル" +
+        "（Claude Code では PowerShell）から pnpm run deploy:local を実行し直してください。",
+    );
 }
 
 export function publishBuildStamp(build: string, output: string): string {
