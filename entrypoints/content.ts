@@ -54,7 +54,7 @@ export default defineContentScript({
     // SPA の遷移完了。DOM の差し替えより先に URL が変わるので、遷移後にも読み直す。
     ctx.addEventListener(document, "yt-navigate-finish", scheduleRefresh);
 
-    browser.runtime.onMessage.addListener((message) => {
+    function onMessage(message: unknown) {
       if (isLoadMoreRequest(message)) {
         if (loading === null) {
           const controller = new AbortController();
@@ -85,6 +85,14 @@ export default defineContentScript({
         refresh();
       }
       return Promise.resolve(snapshot);
+    }
+
+    browser.runtime.onMessage.addListener(onMessage);
+    // 新しい content script に差し替わったとき（開発サーバーでの注入）や
+    // 拡張機能が更新されたときは、受信と読み込みをやめて新しいほうに任せる。
+    ctx.onInvalidated(() => {
+      browser.runtime.onMessage.removeListener(onMessage);
+      cancelLoading?.abort();
     });
   },
 });

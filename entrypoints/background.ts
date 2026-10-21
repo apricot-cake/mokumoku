@@ -1,5 +1,9 @@
 import { browser } from "wxt/browser";
 import {
+  injectContentScriptInsteadOfReload,
+  injectContentScriptIntoOpenTabs,
+} from "../utils/dev-content-script-swap.ts";
+import {
   hasLeftPanelPage,
   isPanelOwner,
   type PanelOwner,
@@ -25,6 +29,13 @@ async function closePanel(owner: PanelOwner): Promise<void> {
 }
 
 export default defineBackground(() => {
+  // 開発サーバーでは、コードを変えても開いている YouTube のタブを再読み込み
+  // せずに新しい content script へ差し替える。公開版のビルドには含めない。
+  if (import.meta.env.COMMAND === "serve") {
+    injectContentScriptInsteadOfReload();
+    void injectContentScriptIntoOpenTabs();
+  }
+
   // パネルはツールバーのアイコンを押したタブにだけ開く。全タブ共通の
   // パネル（manifest の default_path）は無効にしておく。
   void browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
