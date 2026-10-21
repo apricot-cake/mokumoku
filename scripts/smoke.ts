@@ -22,6 +22,13 @@ await withDevBrowser(async (browser) => {
   );
   const worker = await workerTarget.worker();
   if (!worker) throw new Error("拡張機能の service worker に接続できません。");
+  // 前回の確認や手動操作で選んだ表示期間を外し、全件を表示させる。
+  const setPeriod = (period: string) =>
+    worker.evaluate(async (value) => {
+      const api = (globalThis as unknown as { chrome: typeof Browser }).chrome;
+      await api.storage.local.set({ period: value });
+    }, period);
+  await setPeriod("all");
 
   const page = await browser.newPage();
   try {
@@ -135,6 +142,26 @@ await withDevBrowser(async (browser) => {
         `[mokumoku] さらに読み込む: ${beforeRows} 件 → ${afterRows} 件（スクロール位置 ${scrollAfter} を維持）`,
       );
     }
+
+    // 表示期間を絞ると、それより古い動画が一覧から消え、非表示の件数が出る。
+    const rankedBefore = await panel.$$eval("ol > li", (rows) => rows.length);
+    await panel.select("header select", "month");
+    await panel.waitForFunction(
+      (before) => document.querySelectorAll("ol > li").length < before,
+      { timeout: 5000 },
+      rankedBefore,
+    );
+    const filtered = await panel.evaluate(() => ({
+      count: document.querySelectorAll("ol > li").length,
+      note: [...document.querySelectorAll("p")]
+        .map((p) => p.textContent ?? "")
+        .find((text) => /非表示|hidden/.test(text)),
+    }));
+    if (!filtered.note) throw new Error("非表示にした件数が表示されません。");
+    console.log(
+      `[mokumoku] 1か月以内に絞る: ${rankedBefore} 件 → ${filtered.count} 件（${filtered.note}）`,
+    );
+    await setPeriod("all");
   } finally {
     await page.close();
   }

@@ -1,6 +1,6 @@
 import { normalizeDigits } from "./count.ts";
 
-const UNIT_MS = Object.freeze({
+export const AGE_UNIT_MS = Object.freeze({
   second: 1000,
   minute: 60 * 1000,
   hour: 60 * 60 * 1000,
@@ -10,7 +10,7 @@ const UNIT_MS = Object.freeze({
   year: 365.25 * 24 * 60 * 60 * 1000,
 });
 
-type Unit = keyof typeof UNIT_MS;
+type Unit = keyof typeof AGE_UNIT_MS;
 
 interface AgePattern {
   readonly pattern: RegExp;
@@ -116,7 +116,7 @@ export function parseAge(value: string): number {
     const amount = Number.parseFloat(match[1].replace(",", "."));
     const unit = units[match[2].toLowerCase()];
     if (Number.isFinite(amount) && unit !== undefined) {
-      return amount * UNIT_MS[unit];
+      return amount * AGE_UNIT_MS[unit];
     }
   }
   return Number.NaN;

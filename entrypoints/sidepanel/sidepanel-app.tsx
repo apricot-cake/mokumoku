@@ -1,6 +1,12 @@
 import { useMemo, useState } from "react";
 import { browser } from "wxt/browser";
 import { t } from "../../utils/i18n.ts";
+import {
+  isPeriodId,
+  isWithinPeriod,
+  PERIODS,
+  type PeriodId,
+} from "../../utils/period.ts";
 import { type RankedVideo, rankVideos } from "../../utils/ranking.ts";
 import { MIN_BASELINE_SAMPLES } from "../../utils/score.ts";
 import {
@@ -9,6 +15,43 @@ import {
   type PageSnapshot,
 } from "../../utils/snapshot.ts";
 import { usePageSnapshot } from "./use-page-snapshot.ts";
+import { usePeriod } from "./use-period.ts";
+
+const PERIOD_LABELS: Record<PeriodId, () => string> = {
+  all: () => t("panelPeriodAll"),
+  week: () => t("panelPeriodWeek"),
+  month: () => t("panelPeriodMonth"),
+  quarter: () => t("panelPeriodQuarter"),
+  halfYear: () => t("panelPeriodHalfYear"),
+  year: () => t("panelPeriodYear"),
+};
+
+function PeriodSelect({
+  value,
+  onChange,
+}: {
+  value: PeriodId;
+  onChange: (period: PeriodId) => void;
+}) {
+  return (
+    <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+      {t("panelPeriodLabel")}
+      <select
+        value={value}
+        onChange={(event) => {
+          if (isPeriodId(event.target.value)) onChange(event.target.value);
+        }}
+        className="h-8 rounded-md border bg-background px-2 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        {PERIODS.map((period) => (
+          <option key={period.id} value={period.id}>
+            {PERIOD_LABELS[period.id]()}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 const compactNumber = new Intl.NumberFormat(undefined, {
   notation: "compact",
@@ -117,7 +160,15 @@ function ChannelRanking({
   tabId: number;
   snapshot: Extract<PageSnapshot, { kind: "ready" }>;
 }) {
+  // 倍率の基準には読み込み済みの全動画を使い、期間は表示だけを絞る。
   const ranking = useMemo(() => rankVideos(snapshot.videos), [snapshot]);
+  const [period, setPeriod] = usePeriod();
+  const shown =
+    ranking.kind === "ranked"
+      ? ranking.videos.filter((video) => isWithinPeriod(video, period))
+      : [];
+  const hiddenCount =
+    ranking.kind === "ranked" ? ranking.videos.length - shown.length : 0;
   return (
     <div className="flex flex-col">
       <header className="sticky top-0 z-10 flex flex-col gap-2 border-b bg-background px-4 py-3">
@@ -129,7 +180,10 @@ function ChannelRanking({
             {t("panelLoadedCount", [String(snapshot.videos.length)])}
           </p>
         </div>
-        <LoadMoreButton tabId={tabId} canLoadMore={snapshot.canLoadMore} />
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <LoadMoreButton tabId={tabId} canLoadMore={snapshot.canLoadMore} />
+          <PeriodSelect value={period} onChange={setPeriod} />
+        </div>
       </header>
       {snapshot.videos.length === 0 ? (
         <Notice title={t("panelEmpty")} />
@@ -140,10 +194,15 @@ function ChannelRanking({
       ) : (
         <>
           <ol className="flex flex-col p-2">
-            {ranking.videos.map((video, index) => (
+            {shown.map((video, index) => (
               <VideoRow key={video.id} video={video} rank={index + 1} />
             ))}
           </ol>
+          {hiddenCount > 0 ? (
+            <p className="px-4 pb-3 text-xs text-muted-foreground">
+              {t("panelHiddenByPeriod", [String(hiddenCount)])}
+            </p>
+          ) : null}
           {ranking.fresh.length > 0 ? (
             <section className="flex flex-col border-t">
               <h2 className="px-4 pt-3 text-xs font-medium text-muted-foreground">

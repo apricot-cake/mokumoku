@@ -117,6 +117,49 @@ describe("SidepanelApp", () => {
     );
   });
 
+  it("期間を選ぶと、それより古い動画を一覧から隠して保存する", async () => {
+    const typical = [1, 2, 4, 7, 14, 30, 60, 90, 180, 365].map((days) =>
+      video(`d${days}`, Math.round(10000 * Math.sqrt(days)), days),
+    );
+    const snapshot: PageSnapshot = {
+      kind: "ready",
+      channel: "Example",
+      canLoadMore: false,
+      videos: typical,
+    };
+    await render(snapshot);
+    const select = container.querySelector("select") as HTMLSelectElement;
+    await act(async () => {
+      select.value = "month";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    const ranked = [...container.querySelectorAll("ol > li")].map(
+      (row) => row.textContent ?? "",
+    );
+    expect(ranked).toHaveLength(6);
+    expect(ranked.some((row) => row.includes("動画 d60"))).toBe(false);
+    expect(container.textContent).toContain("4 older videos are hidden");
+    expect(await fakeBrowser.storage.local.get("period")).toEqual({
+      period: "month",
+    });
+  });
+
+  it("保存した期間で開く", async () => {
+    await fakeBrowser.storage.local.set({ period: "week" });
+    const snapshot: PageSnapshot = {
+      kind: "ready",
+      channel: "Example",
+      canLoadMore: false,
+      videos: [1, 2, 4, 7, 14, 30, 60, 90, 180, 365].map((days) =>
+        video(`d${days}`, Math.round(10000 * Math.sqrt(days)), days),
+      ),
+    };
+    await render(snapshot);
+    await act(async () => {});
+    expect(container.querySelector("select")?.value).toBe("week");
+    expect(container.querySelectorAll("ol > li")).toHaveLength(4);
+  });
+
   it("最後まで読み込んだらボタンを出さない", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
