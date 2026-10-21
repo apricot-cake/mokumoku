@@ -29,7 +29,6 @@ export function devBrowserArgs(profile: string): string[] {
   return [
     `--user-data-dir=${profile}`,
     "--profile-directory=Default",
-    "--restore-last-session",
     "--no-first-run",
     "--no-default-browser-check",
     "--disable-backgrounding-occluded-windows",
@@ -57,12 +56,13 @@ export async function launchDevBrowser(headless: boolean): Promise<Browser> {
       "--password-store=basic",
       "--use-mock-keychain",
       "--hide-scrollbars",
+      // 起動時の about:blank を開かせない。前回のタブは手動確認用 Chrome の
+      // 保持プロセスが開き直す（dev-browser-tabs.ts）。
+      "about:blank",
     ],
     args: [
       ...devBrowserArgs(profile).filter(
-        (arg) =>
-          !arg.startsWith("--user-data-dir=") &&
-          !(headless && arg === "--restore-last-session"),
+        (arg) => !arg.startsWith("--user-data-dir="),
       ),
       ...(headless ? ["--window-size=1280,720"] : []),
     ],
