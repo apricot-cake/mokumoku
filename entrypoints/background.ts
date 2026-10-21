@@ -8,7 +8,10 @@ import {
   checkLocalBuild,
 } from "../utils/local-build-reload.ts";
 import {
+  CHANNEL_REQUEST,
+  hasLeftPanelChannel,
   hasLeftPanelPage,
+  isChannelUpdate,
   isPanelOwner,
   type PanelOwner,
   panelPageKey,
@@ -25,6 +28,14 @@ async function readOwner(): Promise<PanelOwner | null> {
 }
 
 /** タブ専用のパネルを無効にすると、開いていたパネルも閉じる。 */
+/** タブの content script が読んだチャンネル ID。応答がなければ null。 */
+async function readTabChannelId(tabId: number): Promise<string | null> {
+  const channelId: unknown = await browser.tabs
+    .sendMessage(tabId, { type: CHANNEL_REQUEST })
+    .catch(() => null);
+  return typeof channelId === "string" ? channelId : null;
+}
+
 async function closePanel(owner: PanelOwner): Promise<void> {
   await browser.storage.session.remove(OWNER_KEY);
   await browser.sidePanel
@@ -68,6 +79,7 @@ export default defineBackground(() => {
         tabId,
         windowId: tab.windowId,
         pageKey: panelPageKey(tab.url),
+        channelId: await readTabChannelId(tabId),
       };
       await browser.storage.session.set({ [OWNER_KEY]: owner });
       await Promise.all([options, opened]);
@@ -107,6 +119,21 @@ export default defineBackground(() => {
           url: change.url ?? tab.url,
           loading: change.status === "loading",
         })
+      )
+        return closePanel(owner);
+    });
+  });
+
+  // チャンネル同士の移動は URL では判断できないので、content script が読んだ
+  // チャンネル ID で比べる。
+  browser.runtime.onMessage.addListener((message, sender) => {
+    if (!isChannelUpdate(message)) return;
+    const tabId = sender.tab?.id;
+    void readOwner().then((owner) => {
+      if (
+        owner !== null &&
+        owner.tabId === tabId &&
+        hasLeftPanelChannel(owner, message.channelId)
       )
         return closePanel(owner);
     });

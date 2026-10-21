@@ -32,8 +32,23 @@ const VIEW_LABEL =
 // 「回視聴」を省いた数値だけの再生数の表示。
 const COMPACT_COUNT = /^[\d.,\s]+(?:[KMB]|[千천万萬만億亿억])?$/i;
 
-const CHANNEL_PATH =
-  /^\/(?:@[^/]+|channel\/[^/]+|c\/[^/]+|user\/[^/]+)(\/(?:videos|streams))?\/?$/;
+// チャンネルのページの先頭。`@ハンドル`・チャンネル ID・`/c/`・`/user/` の URL。
+const CHANNEL_PREFIX =
+  /^\/(?:@[^/]+|channel\/[^/]+|c\/[^/]+|user\/[^/]+)(?=\/|$)/;
+// 接頭辞のないレガシーのカスタム URL（`/GoogleJapan/videos`）。1 階層目だけでは
+// YouTube 自身のページと区別できないので、チャンネルのタブが続く場合に限る。
+const LEGACY_CHANNEL =
+  /^\/(?!(?:feed|hashtag|shorts|live|embed|post|source|playlist|watch|results)\/)[^/@]+(?=\/(?:featured|videos|streams|shorts|playlists|community|posts|podcasts|releases|courses|store|search|about)\/?$)/;
+const LIST_TAB = /^\/(?:videos|streams)\/?$/;
+
+/** チャンネルのページなら、そのチャンネルのトップのパス。 */
+export function channelRoot(pathname: string): string | null {
+  return (
+    CHANNEL_PREFIX.exec(pathname)?.[0] ??
+    LEGACY_CHANNEL.exec(pathname)?.[0] ??
+    null
+  );
+}
 
 /**
  * チャンネルの動画一覧になりうるパスか。「動画」「ライブ」タブのほか、
@@ -41,9 +56,11 @@ const CHANNEL_PATH =
  * トップが「ホーム」かどうかはパスでは決まらないので、"root" として返す。
  */
 export function channelPathKind(pathname: string): "list" | "root" | null {
-  const match = CHANNEL_PATH.exec(pathname);
-  if (!match) return null;
-  return match[1] ? "list" : "root";
+  const root = channelRoot(pathname);
+  if (root === null) return null;
+  const rest = pathname.slice(root.length);
+  if (LIST_TAB.test(rest)) return "list";
+  return rest === "" || rest === "/" ? "root" : null;
 }
 
 /**
@@ -126,6 +143,22 @@ export function readVideo(card: Element): VideoEntry | null {
 
 export function readChannelName(doc: Document): string {
   return doc.title.replace(/\s+-\s+YouTube$/, "").trim();
+}
+
+/**
+ * 表示中のチャンネルの ID。チャンネルのページには RSS フィードへのリンクが
+ * あり、SPA で遷移しても表示中のチャンネルに合わせて書き換わる。
+ * canonical のリンクは `@ハンドル` の URL になることがあるので使わない。
+ */
+export function readChannelId(doc: Document, pathname: string): string | null {
+  if (channelRoot(pathname) === null) return null;
+  const feed = doc
+    .querySelector('link[type="application/rss+xml"]')
+    ?.getAttribute("href");
+  if (!feed) return null;
+  return new URL(feed, "https://www.youtube.com").searchParams.get(
+    "channel_id",
+  );
 }
 
 export function readSnapshot(doc: Document, pathname: string): PageSnapshot {

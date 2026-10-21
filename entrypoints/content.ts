@@ -1,6 +1,11 @@
 import { browser } from "wxt/browser";
 import { loadMore, loadUntil } from "../utils/load-more.ts";
 import {
+  CHANNEL_REQUEST,
+  CHANNEL_UPDATE,
+  type ChannelUpdate,
+} from "../utils/panel-page.ts";
+import {
   isLoadMoreRequest,
   LOAD_CANCEL_REQUEST,
   type LoadMoreResult,
@@ -9,7 +14,7 @@ import {
   SNAPSHOT_UPDATE,
   type SnapshotUpdate,
 } from "../utils/snapshot.ts";
-import { readSnapshot } from "../utils/youtube-page.ts";
+import { readChannelId, readSnapshot } from "../utils/youtube-page.ts";
 
 // YouTube は再生中も DOM を頻繁に書き換えるので、変化をまとめてから読む。
 const READ_DELAY_MS = 400;
@@ -24,9 +29,22 @@ export default defineContentScript({
     // 読み込み中に重ねて頼まれたら、同じ読み込みの結果を返す。
     let loading: Promise<LoadMoreResult> | null = null;
     let cancelLoading: AbortController | null = null;
+    let channelId = readChannelId(document, location.pathname);
+
+    // 表示中のチャンネルが変わったら background に知らせる。background は
+    // パネルを開いたチャンネルと比べ、別のチャンネルならパネルを閉じる。
+    function reportChannel(): void {
+      const update: ChannelUpdate = { type: CHANNEL_UPDATE, channelId };
+      browser.runtime.sendMessage(update).catch(() => {});
+    }
 
     function refresh(): void {
       timer = undefined;
+      const nextChannelId = readChannelId(document, location.pathname);
+      if (nextChannelId !== channelId) {
+        channelId = nextChannelId;
+        reportChannel();
+      }
       const next = readSnapshot(document, location.pathname);
       const nextSerialized = JSON.stringify(next);
       if (nextSerialized === serialized) return;
@@ -79,6 +97,7 @@ export default defineContentScript({
         cancelLoading?.abort();
         return;
       }
+      if (type === CHANNEL_REQUEST) return Promise.resolve(channelId);
       if (type !== SNAPSHOT_REQUEST) return;
       if (timer !== undefined) {
         clearTimeout(timer);
@@ -88,6 +107,9 @@ export default defineContentScript({
     }
 
     browser.runtime.onMessage.addListener(onMessage);
+    // ページ全体を読み込み直したときは、前のページの content script が
+    // 知らせる機会がないので、起動時にも知らせる。
+    reportChannel();
     // 新しい content script に差し替わったとき（開発サーバーでの注入）や
     // 拡張機能が更新されたときは、受信と読み込みをやめて新しいほうに任せる。
     ctx.onInvalidated(() => {

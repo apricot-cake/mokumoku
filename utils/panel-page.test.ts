@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { hasLeftPanelPage, isPanelOwner, panelPageKey } from "./panel-page.ts";
+import {
+  hasLeftPanelChannel,
+  hasLeftPanelPage,
+  isChannelUpdate,
+  isPanelOwner,
+  panelPageKey,
+} from "./panel-page.ts";
 
 describe("panelPageKey", () => {
   it("同じチャンネル内のページは同じキーにする", () => {
@@ -12,6 +18,19 @@ describe("panelPageKey", () => {
     ).toBe(home);
     expect(panelPageKey("https://www.youtube.com/@YouTube/videos")).not.toBe(
       home,
+    );
+  });
+
+  it("接頭辞のないレガシーの URL もチャンネルごとにまとめる", () => {
+    const home = panelPageKey("https://www.youtube.com/GoogleJapan");
+    expect(panelPageKey("https://www.youtube.com/GoogleJapan/videos")).toBe(
+      home,
+    );
+    expect(panelPageKey("https://www.youtube.com/GoogleJapan/featured")).toBe(
+      home,
+    );
+    expect(panelPageKey("https://www.youtube.com/hashtag/videos")).not.toBe(
+      panelPageKey("https://www.youtube.com/hashtag/music"),
     );
   });
 
@@ -32,6 +51,7 @@ describe("hasLeftPanelPage", () => {
     tabId: 1,
     windowId: 1,
     pageKey: panelPageKey("https://www.youtube.com/@GoogleJapan/videos"),
+    channelId: null,
   };
 
   it("同じページの再読み込みやチャンネル内の移動では閉じない", () => {
@@ -65,8 +85,61 @@ describe("hasLeftPanelPage", () => {
     ).toBe(true);
   });
 
+  it("チャンネル ID が分かっていれば、チャンネル同士の移動は URL で判断しない", () => {
+    const fromId = {
+      ...owner,
+      pageKey: panelPageKey("https://www.youtube.com/channel/UC1/videos"),
+      channelId: "UC1",
+    };
+    expect(
+      hasLeftPanelPage(fromId, {
+        url: "https://www.youtube.com/@GoogleJapan/featured",
+        loading: false,
+      }),
+    ).toBe(false);
+    expect(
+      hasLeftPanelPage(fromId, {
+        url: "https://www.youtube.com/watch?v=a",
+        loading: false,
+      }),
+    ).toBe(true);
+    expect(
+      hasLeftPanelPage(
+        { ...fromId, channelId: null },
+        {
+          url: "https://www.youtube.com/@GoogleJapan/featured",
+          loading: false,
+        },
+      ),
+    ).toBe(true);
+  });
+
   it("所有タブの記録を判別する", () => {
     expect(isPanelOwner(owner)).toBe(true);
     expect(isPanelOwner({ tabId: 1 })).toBe(false);
+    expect(isPanelOwner({ tabId: 1, windowId: 1, pageKey: null })).toBe(false);
+  });
+});
+
+describe("hasLeftPanelChannel", () => {
+  const owner = { tabId: 1, windowId: 1, pageKey: null, channelId: "UC1" };
+
+  it("別のチャンネルになったら閉じる", () => {
+    expect(hasLeftPanelChannel(owner, "UC1")).toBe(false);
+    expect(hasLeftPanelChannel(owner, "UC2")).toBe(true);
+  });
+
+  it("チャンネルを読めないときは判断しない", () => {
+    expect(hasLeftPanelChannel(owner, null)).toBe(false);
+    expect(hasLeftPanelChannel({ ...owner, channelId: null }, "UC2")).toBe(
+      false,
+    );
+  });
+
+  it("チャンネルの変化の知らせを判別する", () => {
+    expect(
+      isChannelUpdate({ type: "mokumoku:channel", channelId: "UC1" }),
+    ).toBe(true);
+    expect(isChannelUpdate({ type: "mokumoku:channel" })).toBe(false);
   });
 });

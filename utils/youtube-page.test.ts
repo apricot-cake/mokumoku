@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import {
   channelPathKind,
   isNewestOrder,
+  readChannelId,
   readSnapshot,
 } from "./youtube-page.ts";
 
@@ -46,13 +47,32 @@ describe("channelPathKind", () => {
     ["/@YouTube/videos", "list"],
     ["/@YouTube/streams", "list"],
     ["/channel/UC123/videos/", "list"],
+    ["/c/GoogleJapan/videos", "list"],
+    ["/user/GoogleJapan/streams", "list"],
+    ["/GoogleJapan/videos", "list"],
+    ["/GoogleJapan/streams/", "list"],
     ["/@YouTube", "root"],
     ["/channel/UC123/", "root"],
     ["/@YouTube/shorts", null],
     ["/@YouTube/featured", null],
+    ["/GoogleJapan/featured", null],
+    ["/GoogleJapan", null],
+    ["/hashtag/videos", null],
+    ["/feed/subscriptions", null],
     ["/watch", null],
   ])("%s", (path, expected) => {
     expect(channelPathKind(path)).toBe(expected);
+  });
+});
+
+describe("readChannelId", () => {
+  it("RSS フィードのリンクからチャンネル ID を読む", () => {
+    document.head.innerHTML =
+      '<link rel="alternate" type="application/rss+xml" href="https://www.youtube.com/feeds/videos.xml?channel_id=UC123">';
+    expect(readChannelId(document, "/@GoogleJapan/featured")).toBe("UC123");
+    expect(readChannelId(document, "/watch")).toBeNull();
+    document.head.innerHTML = "";
+    expect(readChannelId(document, "/@GoogleJapan/videos")).toBeNull();
   });
 });
 
