@@ -31,21 +31,24 @@ function PeriodSelect({
   value: PeriodId;
   onChange: (period: PeriodId) => void;
 }) {
+  // 選ぶと表示を絞るだけでなく、その範囲まで読み込むことをラベルで示す。
   return (
-    <select
-      aria-label={t("panelPeriodLabel")}
-      value={value}
-      onChange={(event) => {
-        if (isPeriodId(event.target.value)) onChange(event.target.value);
-      }}
-      className="h-8 shrink-0 rounded-md border bg-background px-2 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-    >
-      {PERIODS.map((period) => (
-        <option key={period.id} value={period.id}>
-          {PERIOD_LABELS[period.id]()}
-        </option>
-      ))}
-    </select>
+    <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
+      {t("panelPeriodLabel")}
+      <select
+        value={value}
+        onChange={(event) => {
+          if (isPeriodId(event.target.value)) onChange(event.target.value);
+        }}
+        className="h-8 shrink-0 rounded-md border bg-background px-2 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        {PERIODS.map((period) => (
+          <option key={period.id} value={period.id}>
+            {PERIOD_LABELS[period.id]()}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }
 

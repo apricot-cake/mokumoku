@@ -8,7 +8,7 @@ import {
   type LoadMoreResult,
 } from "../../utils/snapshot.ts";
 
-/** period は表示期間まで続けて、more は1回分だけ読み込む。 */
+/** period は読み込み範囲まで続けて、more は1回分だけ読み込む。 */
 export type LoadMode = "period" | "more";
 
 export type LoadState =

@@ -50,7 +50,7 @@ async function render(
   await act(async () => {
     root.render(<SidepanelApp />);
   });
-  // 保存済みの表示期間の読み出しを待つ。
+  // 保存済みの読み込み範囲の読み出しを待つ。
   await act(async () => {});
   return send;
 }

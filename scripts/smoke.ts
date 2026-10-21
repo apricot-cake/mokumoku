@@ -22,7 +22,7 @@ await withDevBrowser(async (browser) => {
   );
   const worker = await workerTarget.worker();
   if (!worker) throw new Error("拡張機能の service worker に接続できません。");
-  // 前回の確認や手動操作で選んだ表示期間を外し、全件を表示させる。
+  // 前回の確認や手動操作で選んだ読み込み範囲を「手動」に戻し、全件を表示させる。
   const setPeriod = (period: string) =>
     worker.evaluate(async (value) => {
       const api = (globalThis as unknown as { chrome: typeof Browser }).chrome;
@@ -122,7 +122,7 @@ await withDevBrowser(async (browser) => {
         (element) => element.textContent ?? "",
       );
 
-    // 「すべて」のときは、一覧の末尾の「さらに読み込む」で動画が増え、
+    // 「手動」のときは、一覧の末尾の「さらに読み込む」で動画が増え、
     // ページのスクロール位置が保たれることを確かめる。
     if (snapshot.canLoadMore) {
       const rowCount = () =>
@@ -157,18 +157,18 @@ await withDevBrowser(async (browser) => {
       );
     }
 
-    // 表示期間を選ぶだけで、期間を超える動画まで自動で読み込む。
+    // 読み込み範囲を選ぶだけで、範囲を超える動画まで自動で読み込む。
     if (snapshot.canLoadMore) {
       const scrollBefore = await page.evaluate(() => window.scrollY);
       await panel.select("header select", "halfYear");
       await panel.waitForSelector("header progress", { timeout: 5000 });
-      console.log(`[mokumoku] 6か月以内を選ぶ: ${await statusText()}`);
+      console.log(`[mokumoku] 直近6か月を選ぶ: ${await statusText()}`);
       await panel.waitForFunction(
         () => document.querySelector("header progress") === null,
         { timeout: 60000 },
       );
       const summary = await statusText();
-      if (!/6か月以内の動画|Past 6 months/.test(summary))
+      if (!/直近6か月の動画|Past 6 months/.test(summary))
         throw new Error(`期間までの読み込みが完了していません: ${summary}`);
       const scrollAfter = await page.evaluate(() => window.scrollY);
       if (scrollAfter !== scrollBefore)
@@ -178,7 +178,7 @@ await withDevBrowser(async (browser) => {
       console.log(`[mokumoku] 読み込み完了: ${summary}`);
     }
 
-    // 表示期間を絞ると、それより古い動画が一覧から消え、非表示の件数が出る。
+    // 読み込み範囲を絞ると、それより古い動画が一覧から消え、非表示の件数が出る。
     const rankedBefore = await panel.$$eval("ol > li", (rows) => rows.length);
     await panel.select("header select", "month");
     await panel.waitForFunction(
@@ -194,7 +194,7 @@ await withDevBrowser(async (browser) => {
     }));
     if (!filtered.note) throw new Error("非表示にした件数が表示されません。");
     console.log(
-      `[mokumoku] 1か月以内に絞る: ${rankedBefore} 件 → ${filtered.count} 件（${await statusText()}、${filtered.note}）`,
+      `[mokumoku] 直近1か月に絞る: ${rankedBefore} 件 → ${filtered.count} 件（${await statusText()}、${filtered.note}）`,
     );
     await setPeriod("all");
   } finally {

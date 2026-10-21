@@ -58,7 +58,7 @@ export default defineConfig({
     default_locale: "en",
     name: "mokumoku",
     description: "__MSG_extensionDescription__",
-    // パネルで選んだ表示期間を保存する。
+    // パネルで選んだ読み込み範囲を保存する。
     permissions: ["storage"],
     action: {
       default_title: "mokumoku",
