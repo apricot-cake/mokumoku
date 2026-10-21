@@ -130,9 +130,7 @@ describe("SidepanelApp", () => {
     };
     const send = await render(snapshot, () => Promise.resolve("timeout"));
     expect(status()).toBe("1 videos loaded");
-    expect(container.querySelector("header button")?.textContent).toBe(
-      "Load more",
-    );
+    expect(button("Load more").disabled).toBe(false);
     await act(async () => {
       button("Load more").click();
     });
@@ -250,7 +248,11 @@ describe("SidepanelApp", () => {
       }),
     );
     expect(status()).toBe("4 videos in range");
-    expect(container.querySelector("header button")).toBeNull();
+    expect(
+      [...container.querySelectorAll("header button")].map(
+        (element) => element.textContent,
+      ),
+    ).toEqual([""]);
   });
 
   it("最後まで読み込んだらボタンを無効にする", async () => {
@@ -261,11 +263,23 @@ describe("SidepanelApp", () => {
       videos: [video("a", 100, 2)],
     };
     await render(snapshot);
-    const loadMore = container.querySelector(
-      "header button",
-    ) as HTMLButtonElement;
-    expect(loadMore.textContent).toBe("All loaded");
-    expect(loadMore.disabled).toBe(true);
+    expect(button("All loaded").disabled).toBe(true);
+  });
+
+  it("情報アイコンから倍率の説明を開ける", async () => {
+    const snapshot: PageSnapshot = {
+      kind: "ready",
+      channel: "Example",
+      canLoadMore: false,
+      videos: [video("a", 100, 2)],
+    };
+    await render(snapshot);
+    const help = container.querySelector(
+      'button[aria-label="About the ratio"]',
+    );
+    const popover = container.querySelector("[popover]");
+    expect(help?.getAttribute("popovertarget")).toBe(popover?.id);
+    expect(popover?.textContent).toContain("typical views");
   });
 
   it("基準を出せないときは読み込みを促す", async () => {

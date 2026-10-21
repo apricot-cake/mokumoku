@@ -1,3 +1,4 @@
+import { Info } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { t } from "../../utils/i18n.ts";
 import { LOAD_UNTIL_MAX_VIDEOS } from "../../utils/load-more.ts";
@@ -106,6 +107,40 @@ function VideoRow({ video, rank }: { video: RankedVideo; rank?: number }) {
         </div>
       </a>
     </li>
+  );
+}
+
+const HELP_ID = "mokumoku-help";
+
+/**
+ * 倍率の意味の補足。常に表示すると一覧の場所を取るので、ヘッダーの
+ * 情報アイコンから開く popover にする。
+ */
+function RatioHelp() {
+  return (
+    <>
+      <button
+        type="button"
+        popoverTarget={HELP_ID}
+        aria-label={t("panelHelpLabel")}
+        title={t("panelHelpLabel")}
+        className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
+      >
+        <Info aria-hidden="true" className="size-4" />
+      </button>
+      <div
+        id={HELP_ID}
+        popover="auto"
+        className="m-auto w-[min(20rem,calc(100vw-2rem))] rounded-lg border bg-popover p-4 text-sm text-popover-foreground shadow-lg backdrop:bg-black/20"
+      >
+        <h2 className="mb-2 font-semibold">{t("panelHelpLabel")}</h2>
+        <div className="flex flex-col gap-2 text-muted-foreground">
+          <p>{t("panelHelpRatio")}</p>
+          <p>{t("panelHelpFresh")}</p>
+          <p>{t("panelHelpBaseline")}</p>
+        </div>
+      </div>
+    </>
   );
 }
 
@@ -245,9 +280,12 @@ function ChannelRanking({
   return (
     <div className="flex flex-col">
       <header className="sticky top-0 z-10 flex flex-col gap-2 border-b bg-background px-4 pt-3 pb-2">
-        <h1 className="truncate text-base font-semibold text-foreground">
-          {snapshot.channel}
-        </h1>
+        <div className="flex items-center justify-between gap-2">
+          <h1 className="min-w-0 truncate text-base font-semibold text-foreground">
+            {snapshot.channel}
+          </h1>
+          <RatioHelp />
+        </div>
         <div className="flex items-center justify-between gap-2">
           <PeriodSelect value={period} onChange={setPeriod} />
           {period === "all" ? (
