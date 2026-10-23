@@ -79,7 +79,7 @@ Google Japan の公開動画一覧と実際のサイドパネルを別々に撮�
 
 ### プライバシーポリシー
 
-本文は [PRIVACY.md](PRIVACY.md)。公開先は [プライバシーポリシー](https://raw.githubusercontent.com/apricot-cake/mokumoku/main/PRIVACY.md)。push 後に公開 URL を確認する。
+本文は [PRIVACY.md](PRIVACY.md)。公開先は [プライバシーポリシー](https://raw.githubusercontent.com/apricot-cake/mokumoku/main/PRIVACY.md)。2026-10-23 に HTTP 200 と本文の一致を確認した。
 問い合わせ先にはリポジトリの Issues を記載した。リポジトリの公開と Issues の有効化を確認済み。
 
 ## 配布と開発者情報
@@ -96,13 +96,13 @@ Google Japan の公開動画一覧と実際のサイドパネルを別々に撮�
 
 ## 提出前の確認
 
-- [ ] 直近の画面変更を機能単位でコミットし、push 後の最新 CI を確認する。
+- [x] 直近の画面変更を機能単位でコミットし、push 後の [CI](https://github.com/apricot-cake/mokumoku/actions/runs/39895929777) の成功を確認した。
 - [x] アイコン反映後のソースで `check`、`build`、`smoke` を確認した。その後の変更は文書と掲載画像のみ。
-- [ ] Storybook に変更がある場合は `build-storybook` も確認する。
+- [x] `build-storybook` の成功を CI で確認した。
 - [x] 通常ビルドの `pnpm run zip` で `.output/mokumoku-0.1.0-chrome.zip` を作成した。
 - [x] ZIP の manifest、権限、アイコン寸法、ライセンス同梱、CRC、不要ファイル不在を確認した。検査結果は `store-assets/package-report.json`。
 - [ ] 必須画像、掲載文、権限の理由、データ利用申告をそろえる。
-- [ ] プライバシーポリシーを公開し、申告内容との一致を確認する。
+- [x] プライバシーポリシーを公開し、申告案との一致を確認した。
 - [ ] ダッシュボードの公開者情報と配布設定を確認する。
 
 Chrome 142 以降に対応。YouTube の画面構造や表示言語の影響を受けるため、提出版で実機確認する。
