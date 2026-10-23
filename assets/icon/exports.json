@@ -1,0 +1,26 @@
+{
+  "color": "#FF0033",
+  "source": "source.png",
+  "exports": [
+    {
+      "file": "public/icon/16.png",
+      "size": [16, 16],
+      "artworkWidth": 14
+    },
+    {
+      "file": "public/icon/32.png",
+      "size": [32, 32],
+      "artworkWidth": 28
+    },
+    {
+      "file": "public/icon/48.png",
+      "size": [48, 48],
+      "artworkWidth": 40
+    },
+    {
+      "file": "public/icon/128.png",
+      "size": [128, 128],
+      "artworkWidth": 96
+    }
+  ]
+}

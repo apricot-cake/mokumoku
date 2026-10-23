@@ -72,6 +72,12 @@ export default defineConfig({
     // ブラウザのロケールにメッセージがないときの言語。locales/en.yml が対応する。
     default_locale: "en",
     name: "mokumoku",
+    icons: {
+      16: "icon/16.png",
+      32: "icon/32.png",
+      48: "icon/48.png",
+      128: "icon/128.png",
+    },
     // ローカル配備ビルドは固定の公開鍵を持たせ、拡張機能 ID を
     // ffedhpkiimfjkcfkpmfidldaiidgfmbi に保つ。Native Messaging Host はこの ID
     // だけを許可する。Chrome ウェブストアは新規アイテムの manifest に key が
@@ -95,6 +101,10 @@ export default defineConfig({
     host_permissions: ["https://www.youtube.com/*"],
     action: {
       default_title: "mokumoku",
+      default_icon: {
+        16: "icon/16.png",
+        32: "icon/32.png",
+      },
     },
   },
   hooks: {
