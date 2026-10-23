@@ -186,19 +186,6 @@ await withDevBrowser(async (browser) => {
     );
     for (const row of shown.rows) console.log(`  ${row}`);
 
-    // 情報アイコンで倍率の説明が開き、Esc で閉じることを確かめる。
-    await panel.click("header button[popovertarget]");
-    const helpOpen = await panel.evaluate(() =>
-      document.querySelector("[popover]")?.matches(":popover-open"),
-    );
-    await panel.keyboard.press("Escape");
-    const helpClosed = await panel.evaluate(
-      () => !document.querySelector("[popover]")?.matches(":popover-open"),
-    );
-    if (!helpOpen || !helpClosed)
-      throw new Error("倍率の説明を開閉できません。");
-    console.log("[mokumoku] 倍率の説明: 開閉できる");
-
     const statusText = () =>
       panel.$eval(
         'header [role="status"]',

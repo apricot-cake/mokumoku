@@ -1,4 +1,3 @@
-import { Info } from "lucide-react";
 import { useEffect, useMemo, useRef } from "react";
 import { t } from "../../utils/i18n.ts";
 import { LOAD_UNTIL_MAX_VIDEOS } from "../../utils/load-more.ts";
@@ -71,7 +70,7 @@ function Notice({ title, hint }: { title: string; hint?: string }) {
   );
 }
 
-function VideoRow({ video, rank }: { video: RankedVideo; rank?: number }) {
+function VideoRow({ video }: { video: RankedVideo }) {
   return (
     <li>
       <a
@@ -80,9 +79,6 @@ function VideoRow({ video, rank }: { video: RankedVideo; rank?: number }) {
         rel="noreferrer"
         className="flex gap-3 rounded-md p-2 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
       >
-        <span className="w-5 shrink-0 pt-0.5 text-right text-xs text-muted-foreground tabular-nums">
-          {rank ?? "–"}
-        </span>
         {/* サイドパネルの幅が狭いときはサムネイルを小さくし、タイトルの幅を確保する。 */}
         <img
           src={`https://i.ytimg.com/vi/${encodeURIComponent(video.id)}/mqdefault.jpg`}
@@ -91,15 +87,20 @@ function VideoRow({ video, rank }: { video: RankedVideo; rank?: number }) {
           className="aspect-video w-24 shrink-0 self-start rounded object-cover min-[400px]:w-28"
         />
         <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <p className="line-clamp-2 text-sm leading-snug text-foreground">
-            {video.title}
-          </p>
-          <span
-            className="w-fit rounded bg-accent px-1.5 py-0.5 text-xs font-semibold text-accent-foreground tabular-nums"
-            title={t("panelRatioDescription")}
-          >
-            ×{ratioNumber.format(video.ratio)}
-          </span>
+          <div className="flex items-center gap-2">
+            <p
+              className="min-w-0 flex-1 truncate text-sm leading-snug text-foreground"
+              title={video.title}
+            >
+              {video.title}
+            </p>
+            <span
+              className="shrink-0 rounded bg-accent px-1.5 py-0.5 text-right text-xs font-semibold text-accent-foreground tabular-nums"
+              title={t("panelRatioDescription")}
+            >
+              ×{ratioNumber.format(video.ratio)}
+            </span>
+          </div>
           <p className="truncate text-xs text-muted-foreground">
             {t("panelViews", [compactNumber.format(video.views)])} ·{" "}
             {video.ageText}
@@ -110,44 +111,10 @@ function VideoRow({ video, rank }: { video: RankedVideo; rank?: number }) {
   );
 }
 
-const HELP_ID = "mokumoku-help";
-
-/**
- * 倍率の意味の補足。常に表示すると一覧の場所を取るので、ヘッダーの
- * 情報アイコンから開く popover にする。
- */
-function RatioHelp() {
-  return (
-    <>
-      <button
-        type="button"
-        popoverTarget={HELP_ID}
-        aria-label={t("panelHelpLabel")}
-        title={t("panelHelpLabel")}
-        className="flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring"
-      >
-        <Info aria-hidden="true" className="size-4" />
-      </button>
-      <div
-        id={HELP_ID}
-        popover="auto"
-        className="m-auto w-[min(20rem,calc(100vw-2rem))] rounded-lg border bg-popover p-4 text-sm text-popover-foreground shadow-lg backdrop:bg-black/20"
-      >
-        <h2 className="mb-2 font-semibold">{t("panelHelpLabel")}</h2>
-        <div className="flex flex-col gap-2 text-muted-foreground">
-          <p>{t("panelHelpRatio")}</p>
-          <p>{t("panelHelpFresh")}</p>
-          <p>{t("panelHelpBaseline")}</p>
-        </div>
-      </div>
-    </>
-  );
-}
-
 const linkButtonClass =
   "shrink-0 rounded text-xs font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring";
 
-/** ヘッダーの下の状態の行。読み込み中・完了・中断のどれでも高さを変えない。 */
+/** チャンネル名の横に置く件数と読み込み状態。長い文は省略し、操作は残す。 */
 function StatusLine({
   period,
   state,
@@ -199,8 +166,8 @@ function StatusLine({
     text = summary();
   }
   return (
-    <div className="flex h-5 items-center gap-2 text-xs text-muted-foreground">
-      <p role="status" className="min-w-0 truncate">
+    <div className="flex h-5 min-w-0 flex-1 items-center gap-2 text-xs text-muted-foreground">
+      <p role="status" title={text} className="min-w-0 truncate">
         {text}
       </p>
       {action ? (
@@ -280,11 +247,21 @@ function ChannelRanking({
   return (
     <div className="flex flex-col">
       <header className="sticky top-0 z-10 flex flex-col gap-2 border-b bg-background px-4 pt-3 pb-2">
-        <div className="flex items-center justify-between gap-2">
-          <h1 className="min-w-0 truncate text-base font-semibold text-foreground">
+        <div className="flex items-center gap-2">
+          <h1 className="min-w-0 max-w-[60%] truncate text-base font-semibold text-foreground">
             {snapshot.channel}
           </h1>
-          <RatioHelp />
+          <StatusLine
+            period={period}
+            state={state}
+            loadedCount={snapshot.videos.length}
+            shownCount={shown.length + freshCount}
+            periodLoaded={periodLoaded}
+            onCancel={cancel}
+            onResume={() => {
+              if (untilAgeMs !== null) void run(untilAgeMs);
+            }}
+          />
         </div>
         <div className="flex items-center justify-between gap-2">
           <PeriodSelect value={period} onChange={setPeriod} />
@@ -296,17 +273,6 @@ function ChannelRanking({
             />
           ) : null}
         </div>
-        <StatusLine
-          period={period}
-          state={state}
-          loadedCount={snapshot.videos.length}
-          shownCount={shown.length + freshCount}
-          periodLoaded={periodLoaded}
-          onCancel={cancel}
-          onResume={() => {
-            if (untilAgeMs !== null) void run(untilAgeMs);
-          }}
-        />
         {state.kind === "loading" ? (
           // 進み具合は事前に分からないので、値を持たない不確定の進捗バーにする。
           <progress
@@ -324,8 +290,8 @@ function ChannelRanking({
       ) : (
         <>
           <ol className="flex flex-col p-2">
-            {shown.map((video, index) => (
-              <VideoRow key={video.id} video={video} rank={index + 1} />
+            {shown.map((video) => (
+              <VideoRow key={video.id} video={video} />
             ))}
           </ol>
           {hiddenCount > 0 ? (
