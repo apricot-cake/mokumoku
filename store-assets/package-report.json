@@ -1,9 +1,9 @@
 {
-  "checkedAt": "2026-10-23T12:35:58.484808+09:00",
+  "checkedAt": "2026-10-24T08:25:15.034407+09:00",
   "zipPath": ".output/mokumoku-0.1.0-chrome.zip",
-  "sizeBytes": 6066940,
-  "sha256": "6b4b38e97b80e42c4d3a1a2f61c3ca3f8eb02274c91f74c85ab6c4e2845f5b5d",
-  "gitHead": "11866cb7cd01a556c65f25d92751ca60f4877d82",
+  "sizeBytes": 6067175,
+  "sha256": "c62979b67ad6f52d85ab73da274217eee0b72429e7701ff19901487c342f6296",
+  "gitHead": "b68f3ed06d0a52efdf7450a90c62edadf620cb57",
   "sourceHasUncommittedChanges": true,
   "manifest": {
     "manifest_version": 3,
@@ -46,25 +46,25 @@
     "16": {
       "path": "icon/16.png",
       "dimensions": [16, 16],
-      "bytes": 332,
+      "bytes": 334,
       "pass": true
     },
     "32": {
       "path": "icon/32.png",
       "dimensions": [32, 32],
-      "bytes": 683,
+      "bytes": 797,
       "pass": true
     },
     "48": {
       "path": "icon/48.png",
       "dimensions": [48, 48],
-      "bytes": 1142,
+      "bytes": 1187,
       "pass": true
     },
     "128": {
       "path": "icon/128.png",
       "dimensions": [128, 128],
-      "bytes": 3591,
+      "bytes": 3682,
       "pass": true
     }
   },
@@ -82,20 +82,20 @@
     "no_optional_permissions": true,
     "no_local_permissions": true,
     "icons": true,
+    "icons_match_working_tree_and_deployment": true,
     "action_icon_paths": true,
     "third_party_license": true,
     "no_unwanted_files": true,
     "locales": true,
     "entrypoints": true,
-    "runtime_sources_match_commit": true,
-    "git_head_is_runtime_commit": true
+    "package_matches_production_build": true
   },
   "result": "pass",
   "notes": [
-    "通常配布版のpnpm run zipで作成。ストア未アップロード。",
-    "実行ソースとアイコンはruntimeSourcesCommitにコミット済み。entrypoints・utils・locales・package.json・pnpm-lock.yaml・wxt.config.ts・publicに同コミットからの差分がないことを確認。",
-    "作業ツリーには提出準備用の文書・掲載画像・検査結果の未コミット変更がある。対象はdirtyWorkingTreeEntriesに記録。これらは配布ZIPに含まれない。",
-    "WXTはマージ後に削除されたライセンス断片のstats警告を出した。ZIP内の結合済みライセンスを実物で検査。"
+    "通常配布版のpnpm run zipで作成。2026-10-24にChromeウェブストアへアップロードし審査提出済み。",
+    "輪郭を太くしたアイコンを含む未コミットの作業ツリーから作成。gitHeadは基準コミットであり、ZIPのソース全体を示すコミットではない。",
+    "ZIP全エントリと通常配布ビルドの内容一致、および4サイズのアイコンとpublic・ローカル配備先の一致を確認。",
+    "WXTのライセンス断片stats警告は継続。ZIP内の結合済みライセンスを検査。"
   ],
   "entries": [
     "_locales/en/messages.json",
@@ -244,14 +244,32 @@
     "manifest.json",
     "sidepanel.html"
   ],
-  "runtimeSourcesCommit": "11866cb7cd01a556c65f25d92751ca60f4877d82",
   "dirtyWorkingTreeEntries": [
-    "?? CHROMEWEBSTORE.md",
-    "?? PRIVACY.md",
-    "?? store-assets/README.md",
-    "?? store-assets/capture.json",
-    "?? store-assets/package-report.json",
-    "?? store-assets/promo-small.png",
-    "?? store-assets/screenshot-ja.png"
-  ]
+    " M CHROMEWEBSTORE.md",
+    " M assets/icon/README.md",
+    " M assets/icon/source.png",
+    " M locales/en.yml",
+    " M public/icon/128.png",
+    " M public/icon/16.png",
+    " M public/icon/32.png",
+    " M public/icon/48.png",
+    " M store-assets/README.md",
+    " M store-assets/capture.json",
+    " M store-assets/package-report.json",
+    " M store-assets/promo-small.png",
+    " M store-assets/screenshot-ja.png"
+  ],
+  "iconSha256": {
+    "icon/16.png": "98e096eea9423a2003d29fe30c4b5d85c8aecf74e751e261d915a4e02c47ecd7",
+    "icon/32.png": "a9216271da7040de93027f26c80f3697425878ab4e91a640376578ad098ba800",
+    "icon/48.png": "ff38db49e1a7bc3e52fff94ca31bf52ca99e4108429d9772cb57cf216ceee1c2",
+    "icon/128.png": "c1e36cab924bbd8ba0994dc9c5dbbf0f681c4a4980635c7b2d52054186085e85"
+  },
+  "storeSubmission": {
+    "extensionId": "hmhgbppkbadnofkbnnbmolgccnpmnfoe",
+    "version": "0.1.0",
+    "submittedDate": "2026-10-24",
+    "status": "PENDING_REVIEW",
+    "publishAfterApproval": false
+  }
 }

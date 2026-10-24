@@ -1,6 +1,8 @@
 # mokumoku のストア提出準備
 
-最終更新: 2026-10-23。未提出。記載内容は提出前に最終確認する。
+最終更新: 2026-10-24。0.1.0 を審査提出済み。管理画面で「審査待ち」を確認した。
+
+拡張機能 ID: `hmhgbppkbadnofkbnnbmolgccnpmnfoe`。
 
 ## ストア掲載文の下書き
 
@@ -18,7 +20,15 @@ mokumoku は、公開からの経過時間を考慮して、同じチャンネ�
 
 単一の目的: YouTubeチャンネル内で、公開からの経過時間を考慮して再生数が伸びている動画を見つける。
 
-カテゴリ案: Productivity。掲載言語案: 日本語。英語版の掲載文は未作成。
+カテゴリ: ツール。掲載言語: 英語（デフォルト）と日本語。
+
+### 英語の詳しい説明
+
+A video was just published and still has few views, yet it is attracting more views than usual. Want to find videos like that?
+
+mokumoku helps you find videos that are taking off within the same YouTube channel, taking the time since publication into account.
+
+Open a channel’s Videos tab, sort by Latest, and click the mokumoku button to see the comparison in the side panel. Choose a period such as the past month to load more videos together.
 
 ## 必要な画像
 
@@ -31,7 +41,8 @@ mokumoku は、公開からの経過時間を考慮して、同じチャンネ�
 拡張機能用アイコンは `public/icon/` に 16・32・48・128 px の PNG を作成した。
 採用していない生成案は配布物に含めない。
 スクリーンショットは開発専用のヘッドレス Chrome で撮影した実画面を使用した。
-Google Japan の公開動画一覧と実際のサイドパネルを別々に撮影し、説明を添えて横に並べた。
+Google Japan の実際のサイドパネルを、読み込み範囲「直近1年」で撮影した。
+左に紹介文と手順、右に幅を広げたパネルを配置した。手順番号はグレーに統一した。
 撮影記録は `store-assets/capture.json` に保存した。
 
 ## 権限の説明案
@@ -84,29 +95,39 @@ Google Japan の公開動画一覧と実際のサイドパネルを別々に撮�
 
 ## 配布と開発者情報
 
-公開範囲、配布地域、公開者名、連絡先メールは未確認。
-開発者アカウントの登録状態と本人確認・二段階認証の設定も未確認。
+公開者は `apricot-cake`。配布は料金なし・公開・全地域。
+登録済みアカウントで本人確認後に提出が受理された。連絡先メールや二段階認証の設定は変更していない。
 サポート先はリポジトリの Issues を記載した。公開と有効化を確認済み。
 
 ## バージョン履歴
 
 | バージョン | 状況 | 内容 |
 | --- | --- | --- |
-| 0.1.0 | 下書き | 初回提出予定。チャンネル内の動画比較と追加読み込み |
+| 0.1.0 | 審査待ち（2026-10-24提出） | 初回提出。チャンネル内の動画比較と追加読み込み |
 
 ## 提出前の確認
 
-- [x] 直近の画面変更を機能単位でコミットし、push 後の [CI](https://github.com/apricot-cake/mokumoku/actions/runs/39895929777) の成功を確認した。
-- [x] アイコン反映後のソースで `check`、`build`、`smoke` を確認した。その後の変更は文書と掲載画像のみ。
+- [ ] 今回のアイコン・画像・英語概要の変更をコミットし、push 後に CI を確認する。以前の変更の [CI](https://github.com/apricot-cake/mokumoku/actions/runs/39895929777) は成功済み。
+- [x] アイコン反映後のソースで `check`、`build`、`smoke` を確認した。英語概要の短縮後は `check` と ZIP の検査を再実施した。
 - [x] `build-storybook` の成功を CI で確認した。
 - [x] 通常ビルドの `pnpm run zip` で `.output/mokumoku-0.1.0-chrome.zip` を作成した。
 - [x] ZIP の manifest、権限、アイコン寸法、ライセンス同梱、CRC、不要ファイル不在を確認した。検査結果は `store-assets/package-report.json`。
-- [ ] 必須画像、掲載文、権限の理由、データ利用申告をそろえる。
+- [x] 必須画像、日英の掲載文、権限の理由、データ利用申告を保存した。
 - [x] プライバシーポリシーを公開し、申告案との一致を確認した。
-- [ ] ダッシュボードの公開者情報と配布設定を確認する。
+- [x] 公開者 `apricot-cake`、料金なし・公開・全地域の配布設定を確認した。
 
 Chrome 142 以降に対応。YouTube の画面構造や表示言語の影響を受けるため、提出版で実機確認する。
-審査結果・却下履歴は未確認。
+現在は審査待ち。承認・公開は未完了。
+
+2026-10-24 に、太くした雲アイコンを含む ZIP の17項目の検査に合格した。
+英語概要をストア上限内の109文字に短縮し、`check` の186件成功・4件スキップを確認して ZIP を再生成した。
+ファイルは `.output/mokumoku-0.1.0-chrome.zip`（6,067,175 bytes）。
+SHA-256 は `c62979b67ad6f52d85ab73da274217eee0b72429e7701ff19901487c342f6296`。
+Google の再ログイン完了後にアップロードし、掲載文・画像・権限理由・データ利用申告を保存して提出した。
+ウェブ履歴・ウェブサイトのコンテンツを申告し、その他のデータ分類は選択していない。
+リモートコードは使用しない。3つのデータ利用の確約を実装と照合して選択した。
+審査用の手順には、Google Japan の動画タブ・新しい順・ログイン不要・比較に必要な条件を記載した。
+審査後の自動公開を外した。審査の合格後に別途公開する。
 
 ## 公式資料
 
