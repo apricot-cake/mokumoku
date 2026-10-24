@@ -107,7 +107,7 @@ Google Japan の実際のサイドパネルを、読み込み範囲「直近1年
 
 ## 提出前の確認
 
-- [ ] 今回のアイコン・画像・英語概要の変更をコミットし、push 後に CI を確認する。以前の変更の [CI](https://github.com/apricot-cake/mokumoku/actions/runs/39895929777) は成功済み。
+- [x] 今回のアイコン・画像・英語概要の変更を機能ごとにコミットし、push 後の [CI](https://github.com/apricot-cake/mokumoku/actions/runs/40043345607) の成功を確認した（`4e88048`）。
 - [x] アイコン反映後のソースで `check`、`build`、`smoke` を確認した。英語概要の短縮後は `check` と ZIP の検査を再実施した。
 - [x] `build-storybook` の成功を CI で確認した。
 - [x] 通常ビルドの `pnpm run zip` で `.output/mokumoku-0.1.0-chrome.zip` を作成した。
