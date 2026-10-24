@@ -44,19 +44,6 @@ pnpm run browser:open
 pnpm run smoke
 ```
 
-## HTML デモを確認する
-
-`website/` は、拡張機能をインストールせずに試せる[操作デモ](https://apricot-cake.github.io/mokumoku/)です。YouTube には接続せず、Storybook の架空サンプルと本体の倍率計算を使います。
-
-```powershell
-node scripts/build-website.ts
-pnpm exec vite website --host 127.0.0.1
-```
-
-表示と操作は `website/index.html`、`style.css`、`demo.js` で管理します。生成した `website/generated/` はコミットしません。本体の倍率計算や `stories/fixtures.ts` を変えた後は、生成コマンドを実行し直してください。
-
-`.github/workflows/website.yml` が main の変更時に生成し、GitHub Pages へ公開します。pull request では生成と構文検査だけを行います。
-
 ## Storybook で画面を確認する
 
 ```powershell
