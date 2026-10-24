@@ -1,8 +1,10 @@
 # mokumoku
 
+このREADMEは開発者向けです。ソースからの導入と開発手順を案内します。
+
 mokumoku は、YouTube チャンネル内で、公開からの経過時間を考慮して再生数が伸びている動画を探す Chrome 拡張機能です。比較結果を、閲覧中のページと並べたサイドパネルに表示します。
 
-[操作デモ](https://apricot-cake.github.io/mokumoku/) — インストールせずに、架空の動画で期間の選択と追加読み込みを試せます。
+[操作の録画](https://github.com/user-attachments/assets/d8c0f7f3-ec07-4482-8711-0a54c1214414) — Google Japanの動画を、実際の拡張機能で追加読み込みし、期間を選ぶ操作を録画しています。
 
 ## 主な機能
 
