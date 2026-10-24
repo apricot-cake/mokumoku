@@ -1,12 +1,14 @@
-# 開発に参加する
+# 開発ガイド
 
-この文書では、開発環境の準備、ビルド、Chrome と Storybook での確認、ローカル配備を説明します。機能と倍率の求め方は [使い方](使い方.md) を参照してください。
+開発環境の準備、テスト、Chrome での動作確認、ローカル配備の手順をまとめています。機能と倍率の求め方は[使い方](使い方.md)を参照してください。
 
 ## 開発環境を準備する
 
-Node.js 24.12.0 以降と pnpm 12.11.2 を使います。バージョンの指定は `package.json` にあります。
+必要な Node.js、pnpm、Chrome のバージョンは、[README](../README.md#インストール)を参照してください。Node.js と pnpm の指定は `package.json` にもあります。
 
-スペル検査には typos 1.51.1 を使います。実行ファイルを PATH の通った場所に配置してください。CI でも同じバージョンを使います。
+スペル検査には typos 1.51.1 を使います。コマンドとして実行できるよう、実行ファイルを PATH の通った場所に配置してください。CI でも同じバージョンを使います。
+
+リポジトリのフォルダーで、依存パッケージをインストールします。
 
 ```powershell
 pnpm install --frozen-lockfile
@@ -14,48 +16,62 @@ pnpm install --frozen-lockfile
 
 ## コードを確認する
 
+次のコマンドで、コードと Markdown の書式、スペル、型、単体テストをまとめて確認します。
+
 ```powershell
 pnpm run check
 ```
 
+文書だけを変更した場合は、`pnpm run lint:markdown` と `pnpm run lint:typos` で確認できます。
+
 ## ビルドと Chrome での確認
 
-Chrome 142 以降に対応しています。
+配布用の拡張機能をビルドするには、次のコマンドを使います。生成先は `.output/chrome-mv3` です。
 
 ```powershell
 pnpm run build
 ```
 
-開発中は次のコマンドを使います。開発サーバーが起動し、拡張機能を読み込んだ開発専用プロファイルの Chrome が開きます。ファイルを保存すると、変更が自動で反映されます。
+開発中は `pnpm dev` を使います。開発サーバーが起動し、拡張機能を読み込んだ Chrome が開きます。ファイルを保存すると、変更が自動で反映されます。
 
 ```powershell
 pnpm dev
 ```
 
-`pnpm run build` でビルドした配布用の拡張機能は、次のコマンドで同じ Chrome に読み込んで確認できます。
+この Chrome は、普段使いとは別の開発専用プロファイルを使います。保存先は既定で `~/.mokumoku-ext-profile` です。`MOKUMOKU_DEV_PROFILE` で変更できます。
+
+配布用のビルドを確認するときは、開発用 Chrome を閉じてから、次のコマンドで開き直します。
 
 ```powershell
 pnpm run browser:open
 ```
 
-実際の YouTube ページでの自動確認は次のコマンドで行います。先に手動確認用の Chrome を閉じてください。ヘッドレスの Chrome で読み取りとサイドパネルの表示を確かめます。
+`wxt.config.ts` の権限などを変更した場合は、開発サーバーと開発用 Chrome の両方を閉じ、`pnpm dev` を実行し直してください。
+
+### 実際の YouTube ページを確認する
+
+自動確認には `pnpm run smoke` を使います。先に `pnpm run build` を実行し、手動確認用の Chrome を閉じてください。ウィンドウを表示しないヘッドレスモードで、動画情報の読み取りとサイドパネルの表示を確認します。
 
 ```powershell
 pnpm run smoke
 ```
 
-## HTML デモを確認する
+別のチャンネルを使う場合は、`pnpm run smoke <動画タブのURL>` と指定します。
 
-`website/` は、拡張機能をインストールせずに試せる[操作デモ](https://apricot-cake.github.io/mokumoku/)です。YouTube には接続せず、Storybook の架空サンプルと本体の倍率計算を使います。
+## 操作デモを確認する
+
+`website/` には、拡張機能をインストールせずに試せる[操作デモ](https://apricot-cake.github.io/mokumoku/)があります。YouTube には接続せず、架空の動画と本体の倍率計算を使います。
 
 ```powershell
 node scripts/build-website.ts
 pnpm exec vite website --host 127.0.0.1
 ```
 
-表示と操作は `website/index.html`、`style.css`、`demo.js` で管理します。生成した `website/generated/` はコミットしません。本体の倍率計算や `stories/fixtures.ts` を変えた後は、生成コマンドを実行し直してください。
+サーバーが起動したら、表示された URL をブラウザで開いてください。
 
-`.github/workflows/website.yml` が main の変更時に生成し、GitHub Pages へ公開します。pull request では生成と構文検査だけを行います。
+画面と操作は `website/index.html`、`website/style.css`、`website/demo.js` で管理します。本体の倍率計算や `stories/fixtures.ts` を変えた後は、生成コマンドを実行し直してください。生成先の `website/generated/` はコミットしません。
+
+`.github/workflows/website.yml` は、デモに関係するファイルが main で変更されたときに、デモを生成して GitHub Pages へ公開します。プルリクエストでは、生成と構文検査だけを行います。
 
 ## Storybook で画面を確認する
 
@@ -63,24 +79,26 @@ pnpm exec vite website --host 127.0.0.1
 pnpm storybook
 ```
 
-[Storybook](http://127.0.0.1:6010/) を内蔵ブラウザで開くと、本体と同じサイドパネルの画面を確認できます。左側で動画一覧、読み込み中、動画なしなどの状態を選び、上部で日本語・英語とパネル幅を切り替えます。画面へのフィードバックは内蔵ブラウザの「Annotate」で対象を選び、コメントを保存してからチャットで送ってください。
+起動後に [Storybook](http://127.0.0.1:6010/) をブラウザで開くと、状態ごとの画面を確認できます。左側で動画一覧、読み込み中、動画なしなどを選び、上部で日本語・英語とパネル幅を切り替えます。
 
-動画と読み込み結果は固定サンプルです。期間の選択とサンプルの追加読み込みを操作できます。YouTube や拡張機能との連携は開発用 Chrome と `pnpm run smoke` で確認します。
+動画と読み込み結果には、固定のサンプルを使っています。期間の選択や追加読み込みも試せますが、実際の YouTube や拡張機能との連携は、開発用 Chrome と `pnpm run smoke` で確認してください。
 
 `pnpm run build-storybook` で `storybook-static/` に静的ビルドを出力できます。
 
 `locales/*.yml` の文言を編集した場合は、Storybook を再起動してください。
 
-## 任意: メインのプロファイルで使う
+## 任意: 普段使いの Chrome に配備する
 
-普段使いの Chrome でも使いたい場合は、Windows 向けのローカル配備機能を利用できます。配備のたびに、拡張機能を自動で新しいビルドへ読み込み直します。main の作業ツリーで次のコマンドを実行すると、現在のソースをビルドして `.output\deployed\chrome-mv3` へ配備します。
+Windows では、普段使いの Chrome 向けにビルドを配備し、更新を自動で読み込み直す機能を使えます。main の作業フォルダーで、次のコマンドを実行してください。現在のソースをビルドし、`.output/deployed/chrome-mv3` へ配備します。
 
 ```powershell
 pnpm run deploy:local
 ```
 
-最初の1回だけ、Chrome の `chrome://extensions` でデベロッパーモードをオンにし、`.output\deployed\chrome-mv3` を「パッケージ化されていない拡張機能」として読み込みます。以降は配備のたびに、パネルを開いたときか読み込みを始めたときに新しいビルドへ読み込み直されます。読み込み直すとパネルが閉じるので、アイコンを押して開き直してください。開いている YouTube のタブには新しい content script が入るので、ページを再読み込みする必要はありません。
+最初の1回は、Chrome の `chrome://extensions` でデベロッパーモードを有効にし、`.output/deployed/chrome-mv3` を「パッケージ化されていない拡張機能」として読み込みます。
 
-配備ビルドだけが固定の拡張機能 ID と `nativeMessaging` 権限を持ちます。配備時に再読み込み専用の[ネイティブメッセージングホスト](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging)を現在の Windows ユーザーの HKCU へ登録し、拡張機能は配備済みのビルド ID をこのホストに問い合わせます。常時接続や定期的な確認はしません。
+以降は配備するたびに、パネルを開いたときか読み込みを始めたときに、新しいビルドへ読み込み直されます。その際はパネルが閉じるので、アイコンを押して開き直してください。開いている YouTube のタブにも新しいコンテンツスクリプトが入るため、ページの再読み込みは不要です。
 
-詳しい手順は [開発ガイド](../AGENTS.md) にあります。
+この配備用ビルドには、固定の拡張機能 ID と `nativeMessaging`、`scripting` 権限が含まれます。通常の配布用ビルドには含まれません。
+
+配備時には、再読み込み専用の[ネイティブメッセージングホスト](https://developer.chrome.com/docs/extensions/develop/concepts/native-messaging)を、Windows レジストリのユーザー領域（HKCU）へ登録します。拡張機能が端末内のプログラムと通信するための仕組みで、配備済みのビルド ID の確認に使います。常時接続や定期的な確認は行いません。
