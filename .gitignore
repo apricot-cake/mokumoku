@@ -3,4 +3,3 @@ node_modules/
 .wxt/
 storybook-static/
 .storybook/public/mockServiceWorker.js
-website/generated/

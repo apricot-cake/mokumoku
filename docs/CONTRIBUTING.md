@@ -58,21 +58,6 @@ pnpm run smoke
 
 別のチャンネルを使う場合は、`pnpm run smoke <動画タブのURL>` と指定します。
 
-## 操作デモを確認する
-
-`website/` には、拡張機能をインストールせずに試せる[操作デモ](https://apricot-cake.github.io/mokumoku/)があります。YouTube には接続せず、架空の動画と本体の倍率計算を使います。
-
-```powershell
-node scripts/build-website.ts
-pnpm exec vite website --host 127.0.0.1
-```
-
-サーバーが起動したら、表示された URL をブラウザで開いてください。
-
-画面と操作は `website/index.html`、`website/style.css`、`website/demo.js` で管理します。本体の倍率計算や `stories/fixtures.ts` を変えた後は、生成コマンドを実行し直してください。生成先の `website/generated/` はコミットしません。
-
-`.github/workflows/website.yml` は、デモに関係するファイルが main で変更されたときに、デモを生成して GitHub Pages へ公開します。プルリクエストでは、生成と構文検査だけを行います。
-
 ## Storybook で画面を確認する
 
 ```powershell
