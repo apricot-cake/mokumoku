@@ -1,4 +1,4 @@
-extensionDescription: "Ranks a YouTube channel's recent uploads by how their views compare with the channel's typical views at the same age, so you can spot new videos that are taking off."
+extensionDescription: "Find new videos taking off on a YouTube channel by comparing their views with typical videos of the same age."
 
 panelOpenChannel: "Open the Videos tab of a YouTube channel"
 panelReloadHint: "If it's already open, reload the page"
