@@ -13,7 +13,10 @@ YouTube チャンネルの「動画」タブを「新しい順」で開いた場
 
 ## 操作動画
 
-[パネルの表示・追加読み込み・期間指定の操作を見る](docs/recordings/mokumoku.webm)
+パネルの表示、追加読み込み、期間を指定した自動読み込みを紹介します。
+
+<!-- markdownlint-disable-next-line MD034 -->
+https://github.com/user-attachments/assets/416a7002-1c9e-4c48-b7ce-7c370734b4ef
 
 ## インストール
 
