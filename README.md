@@ -20,24 +20,11 @@ https://github.com/user-attachments/assets/416a7002-1c9e-4c48-b7ce-7c370734b4ef
 
 [Chrome ウェブストアからインストール](https://chromewebstore.google.com/detail/hmhgbppkbadnofkbnnbmolgccnpmnfoe)できます。Chrome 142 以降が必要です。
 
-### ソースからインストールする場合
-
-Node.js 24.12.0 以降と pnpm 12.11.2 を用意してください。
-
-```powershell
-git clone https://github.com/apricot-cake/mokumoku.git
-cd mokumoku
-pnpm install --frozen-lockfile
-pnpm run build
-```
-
-ビルドが終わったら、Chrome で `chrome://extensions` を開き、デベロッパーモードを有効にします。「パッケージ化されていない拡張機能を読み込む」から、リポジトリ内の `.output/chrome-mv3` フォルダーを選んでください。
-
-更新するときは、新しいソースを取得して `pnpm run build` を実行し、拡張機能の管理画面で mokumoku を再読み込みしてください。
-
-## 開発・貢献
+## 開発者向け
 
 開発環境の準備、テスト、画面の確認方法は[開発ガイド](docs/CONTRIBUTING.md)を参照してください。
+
+## 問い合わせ
 
 不具合の報告や改善の提案は、[GitHub Issues](https://github.com/apricot-cake/mokumoku/issues)で受け付けています。投稿は公開されるため、個人情報や公開したくない閲覧情報を含めないでください。
 

@@ -4,15 +4,25 @@
 
 ## 開発環境を準備する
 
-必要な Node.js、pnpm、Chrome のバージョンは、[README](../README.md#インストール)を参照してください。Node.js と pnpm の指定は `package.json` にもあります。
+Node.js 24.12.0 以降、pnpm 12.11.2、Chrome 142 以降を用意してください。Node.js と pnpm の指定は `package.json` にもあります。
 
 スペル検査には typos 1.51.1 を使います。コマンドとして実行できるよう、実行ファイルを PATH の通った場所に配置してください。CI でも同じバージョンを使います。
 
-リポジトリのフォルダーで、依存パッケージをインストールします。
+ソースを取得し、依存パッケージをインストールします。
 
 ```powershell
+git clone https://github.com/apricot-cake/mokumoku.git
+cd mokumoku
 pnpm install --frozen-lockfile
 ```
+
+開発中は `pnpm dev` を使います。開発サーバーが起動し、拡張機能を読み込んだ Chrome が開きます。ファイルを保存すると、変更が自動で反映されます。
+
+```powershell
+pnpm dev
+```
+
+この Chrome は、普段使いとは別の開発専用プロファイルを使います。保存先は既定で `~/.mokumoku-ext-profile` です。`MOKUMOKU_DEV_PROFILE` で変更できます。
 
 ## コードを確認する
 
@@ -31,14 +41,6 @@ pnpm run check
 ```powershell
 pnpm run build
 ```
-
-開発中は `pnpm dev` を使います。開発サーバーが起動し、拡張機能を読み込んだ Chrome が開きます。ファイルを保存すると、変更が自動で反映されます。
-
-```powershell
-pnpm dev
-```
-
-この Chrome は、普段使いとは別の開発専用プロファイルを使います。保存先は既定で `~/.mokumoku-ext-profile` です。`MOKUMOKU_DEV_PROFILE` で変更できます。
 
 配布用のビルドを確認するときは、開発用 Chrome を閉じてから、次のコマンドで開き直します。
 
