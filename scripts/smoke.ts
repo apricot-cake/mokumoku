@@ -15,10 +15,11 @@ const OTHER_PAGE_URL = "https://www.youtube.com/@YouTube/videos";
 const url = process.argv[2] ?? DEFAULT_URL;
 const CARD =
   "ytd-browse:not([hidden]) ytd-rich-grid-renderer ytd-rich-item-renderer";
-const RANGE_TRIGGER = "header select";
+const RANGE_TRIGGER =
+  'header [role="combobox"][aria-label="読み込み範囲"], header [role="combobox"][aria-label="Load range"]';
 
 const RANGE_LABELS: Record<PeriodId, readonly string[]> = {
-  all: ["手動", "Manual"],
+  all: ["期間指定なし", "No date range"],
   week: ["直近1週間", "Past week"],
   month: ["直近1か月", "Past month"],
   quarter: ["直近3か月", "Past 3 months"],
@@ -32,18 +33,84 @@ async function chooseOption(
   trigger: string,
   labels: readonly string[],
 ): Promise<void> {
-  const value = await panel.$eval(
-    trigger,
-    (element, names) => {
-      const option = [...(element as HTMLSelectElement).options].find((item) =>
-        names.includes(item.textContent?.trim() ?? ""),
+  await panel.locator(trigger).click();
+  await panel.waitForFunction(
+    (selector) => {
+      const element = document.querySelector(selector);
+      return (
+        element?.getAttribute("aria-expanded") === "true" &&
+        element.hasAttribute("aria-controls")
       );
-      if (!option) throw new Error("選択肢がありません。");
-      return option.value;
     },
-    labels,
+    { timeout: 5000 },
+    trigger,
   );
-  await panel.select(trigger, value);
+  const popupId = await panel.$eval(trigger, (element) =>
+    element.getAttribute("aria-controls"),
+  );
+  if (popupId === null)
+    throw new Error("選択欄のポップアップを特定できません。");
+  const popup = `[id=${JSON.stringify(popupId)}]`;
+  await panel.waitForSelector(`${popup} [role="option"]`, {
+    visible: true,
+    timeout: 5000,
+  });
+  const options = await panel.$$(`${popup} [role="option"]`);
+  let chosen = false;
+  for (const option of options) {
+    const label = await option.evaluate((element) =>
+      element.textContent?.trim(),
+    );
+    if (
+      label !== undefined &&
+      labels.includes(label) &&
+      (await option.isVisible())
+    ) {
+      await option.asLocator().click();
+      chosen = true;
+      break;
+    }
+  }
+  await Promise.all(options.map((option) => option.dispose()));
+  if (!chosen) throw new Error(`選択項目がありません: ${labels.join(" / ")}`);
+  await panel
+    .waitForFunction(
+      (selector, expected) => {
+        const element = document.querySelector(selector);
+        return (
+          element?.getAttribute("aria-expanded") === "false" &&
+          expected.includes(
+            element
+              .querySelector('[data-slot="select-value"]')
+              ?.textContent?.trim() ?? "",
+          )
+        );
+      },
+      { timeout: 5000 },
+      trigger,
+      labels,
+    )
+    .catch(async (error: unknown) => {
+      const state = await panel.evaluate(
+        (selector) => ({
+          trigger: document.querySelector(selector)?.outerHTML,
+          options: [...document.querySelectorAll('[role="option"]')].map(
+            (option) => ({
+              text: option.textContent,
+              selected: option.getAttribute("aria-selected"),
+            }),
+          ),
+        }),
+        trigger,
+      );
+      await panel.screenshot({
+        path: ".output/shadcn-smoke-select-failed.png",
+      });
+      throw new Error(
+        `項目クリック後に選択が確定しません: ${JSON.stringify(state)}`,
+        { cause: error },
+      );
+    });
 }
 
 function chooseRange(panel: Page, period: PeriodId): Promise<void> {
@@ -54,9 +121,10 @@ function waitForRange(panel: Page, period: PeriodId): Promise<unknown> {
   return panel.waitForFunction(
     (selector, labels) =>
       labels.includes(
-        (
-          document.querySelector(selector) as HTMLSelectElement | null
-        )?.selectedOptions[0]?.textContent?.trim() ?? "",
+        document
+          .querySelector(selector)
+          ?.querySelector('[data-slot="select-value"]')
+          ?.textContent?.trim() ?? "",
       ),
     { timeout: 10000 },
     RANGE_TRIGGER,
@@ -256,7 +324,7 @@ await withDevBrowser(async (browser) => {
         (element) => element.textContent ?? "",
       );
 
-    // 「手動」のときは、ヘッダーの「さらに読み込む」で動画が増え、
+    // 「期間指定なし」のときは、ヘッダーの「さらに読み込む」で動画が増え、
     // ページのスクロール位置が保たれることを確かめる。
     if (snapshot.canLoadMore) {
       const rowCount = () =>
@@ -297,14 +365,14 @@ await withDevBrowser(async (browser) => {
       await chooseRange(panel, "halfYear");
       // 読み込み済みの動画がすでに範囲を超えていれば、読み込みは始まらない。
       const started = await panel
-        .waitForSelector("header progress", { timeout: 3000 })
+        .waitForSelector('header [role="progressbar"]', { timeout: 3000 })
         .then(() => true)
         .catch(() => false);
       console.log(
         `[mokumoku] 直近6か月を選ぶ: ${started ? await statusText() : "読み込み済みのため読み込まない"}`,
       );
       await panel.waitForFunction(
-        () => document.querySelector("header progress") === null,
+        () => document.querySelector('header [role="progressbar"]') === null,
         { timeout: 60000 },
       );
       const summary = await statusText();
@@ -336,7 +404,7 @@ await withDevBrowser(async (browser) => {
     console.log(
       `[mokumoku] 直近1か月に絞る: ${rankedBefore} 件 → ${filtered.count} 件（${await statusText()}、${filtered.note}）`,
     );
-    // 本物のページ内タブを移り、パネルを閉じずに期間を手動へ戻す。
+    // 本物のページ内タブを移り、パネルを閉じずに期間を期間指定なしへ戻す。
     // 一度訪れたページへ戻っても選択済みの期間を復元しない。
     const originalSection = new URL(page.url()).pathname.endsWith("/streams")
       ? "streams"
@@ -375,11 +443,11 @@ await withDevBrowser(async (browser) => {
           throw new Error("動画・ライブ間の移動でパネルが閉じました。");
         await waitForRange(panel, "all");
         await panel.waitForFunction(
-          () => document.querySelector("header progress") === null,
+          () => document.querySelector('header [role="progressbar"]') === null,
           { timeout: 15000 },
         );
         console.log(
-          `[mokumoku] ${section} へ移動: パネルを維持し、読み込み範囲は手動（自動読み込みなし）`,
+          `[mokumoku] ${section} へ移動: パネルを維持し、読み込み範囲は期間指定なし（自動読み込みなし）`,
         );
       } finally {
         // 移動後の状態は直前の検査で確認済み。
@@ -388,7 +456,7 @@ await withDevBrowser(async (browser) => {
     await moveSection(otherSection);
     await chooseRange(panel, "week");
     await panel.waitForFunction(
-      () => document.querySelector("header progress") === null,
+      () => document.querySelector('header [role="progressbar"]') === null,
       { timeout: 60000 },
     );
     await moveSection(originalSection);
@@ -503,7 +571,7 @@ await withDevBrowser(async (browser) => {
     );
     await other.close();
 
-    // 以前の版の保存値が残っていても、新しいパネルは手動で始まる。
+    // 以前の版の保存値が残っていても、新しいパネルは期間指定なしで始まる。
     await page.goto(url, { waitUntil: "domcontentloaded" });
     await waitPanelClosed("自動読み込み確認前のページ移動");
     await page.waitForSelector(CARD, { timeout: 20000 });
@@ -525,9 +593,11 @@ await withDevBrowser(async (browser) => {
     );
     if (
       cardsAfterOpen !== cardsBeforeRestore ||
-      (await periodPanel.$("header progress")) !== null
+      (await periodPanel.$('header [role="progressbar"]')) !== null
     )
-      throw new Error("手動で開いたパネルが自動で追加読み込みを始めました。");
+      throw new Error(
+        "期間指定なしで開いたパネルが自動で追加読み込みを始めました。",
+      );
     const readPeriodSnapshot = () =>
       readSnapshot(
         Number(new URL(periodPanel.url()).searchParams.get("tabId")),
@@ -558,7 +628,7 @@ await withDevBrowser(async (browser) => {
     }
     await periodPanel.waitForFunction(
       () =>
-        document.querySelector("header progress") === null &&
+        document.querySelector('header [role="progressbar"]') === null &&
         /範囲内|in range/.test(
           document.querySelector('header [role="status"]')?.textContent ?? "",
         ),
@@ -576,8 +646,8 @@ await withDevBrowser(async (browser) => {
       );
     console.log(
       needsYearLoad
-        ? "[mokumoku] 新しいパネルは手動で開始し、直近1年を選ぶと期間まで追加読み込みした"
-        : `[mokumoku] 新しいパネルは手動で開始し、直近1年の指定は${yearAlreadyLoaded ? "年境界まで読み込み済み" : "一覧の末尾まで読み込み済み"}のため追加読み込みせずに表示した`,
+        ? "[mokumoku] 新しいパネルは期間指定なしで開始し、直近1年を選ぶと期間まで追加読み込みした"
+        : `[mokumoku] 新しいパネルは期間指定なしで開始し、直近1年の指定は${yearAlreadyLoaded ? "年境界まで読み込み済み" : "一覧の末尾まで読み込み済み"}のため追加読み込みせずに表示した`,
     );
     await worker.evaluate(
       async (tabId) => {
@@ -591,7 +661,7 @@ await withDevBrowser(async (browser) => {
     const reopened = await openPanel();
     await waitForRange(reopened, "all");
     console.log(
-      "[mokumoku] パネルを閉じて開き直す: 読み込み範囲は手動に戻った",
+      "[mokumoku] パネルを閉じて開き直す: 読み込み範囲は期間指定なしに戻った",
     );
     await worker.evaluate(async () => {
       const api = (globalThis as unknown as { chrome: typeof Browser }).chrome;

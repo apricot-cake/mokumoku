@@ -38,6 +38,7 @@ const config: StorybookConfig = {
         // WXT の API は通常の Web ページでは使えない。表示は本体を使い、
         // 外部との境界だけを Storybook 内で差し替える。
         alias: [
+          { find: "@", replacement: resolve(".") },
           {
             find: /^\.\/use-(page-snapshot|loader|period)\.ts$/,
             replacement: resolve("stories/panel-environment.tsx"),

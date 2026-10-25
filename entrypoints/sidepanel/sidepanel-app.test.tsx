@@ -66,7 +66,7 @@ function status(): string {
 }
 
 const RANGE_LABELS: Record<string, string> = {
-  all: "Manual",
+  all: "No date range",
   week: "Past week",
   month: "Past month",
   quarter: "Past 3 months",
@@ -76,25 +76,42 @@ const RANGE_LABELS: Record<string, string> = {
 };
 
 function combobox(label: string, scope: ParentNode = container): HTMLElement {
-  const element = scope.querySelector<HTMLSelectElement>(
-    label === "Load range" ? "select" : 'select[aria-label="Unit"]',
+  const trigger = scope.querySelector<HTMLElement>(
+    `[role="combobox"][aria-label="${label}"]`,
   );
-  if (!element) throw new Error("選択欄がありません。");
-  return element;
+  if (!trigger) throw new Error(`「${label}」の選択欄がありません。`);
+  return trigger;
 }
 
 async function chooseOption(
   trigger: HTMLElement,
   label: string,
 ): Promise<void> {
-  const select = trigger as HTMLSelectElement;
-  const option = [...select.options].find(
-    (item) => item.textContent?.trim() === label,
-  );
-  if (!option) throw new Error("選択肢がありません。");
+  await act(async () => trigger.click());
+  const popupId = trigger.getAttribute("aria-controls");
+  const listbox = popupId ? document.getElementById(popupId) : null;
+  if (!listbox) throw new Error("選択欄に対応するリストがありません。");
+  const option = [
+    ...listbox.querySelectorAll<HTMLElement>('[role="option"]'),
+  ].find((element) => element.textContent?.trim() === label);
+  if (!option) throw new Error(`「${label}」の選択肢がありません。`);
   await act(async () => {
-    select.value = option.value;
-    select.dispatchEvent(new Event("change", { bubbles: true }));
+    option.dispatchEvent(
+      new PointerEvent("pointerdown", {
+        bubbles: true,
+        pointerType: "mouse",
+        button: 0,
+        buttons: 1,
+      }),
+    );
+    option.dispatchEvent(
+      new PointerEvent("pointerup", {
+        bubbles: true,
+        pointerType: "mouse",
+        button: 0,
+      }),
+    );
+    option.click();
   });
 }
 
@@ -114,7 +131,9 @@ function expectRange(period: string, scope: ParentNode = container): void {
 }
 
 function selectedText(trigger: HTMLElement): string | undefined {
-  return (trigger as HTMLSelectElement).selectedOptions[0]?.textContent?.trim();
+  return trigger
+    .querySelector('[data-slot="select-value"]')
+    ?.textContent?.trim();
 }
 
 beforeEach(() => {
@@ -223,6 +242,33 @@ describe("SidepanelApp", () => {
       expect.objectContaining({ type: "mokumoku:load-more" }),
     );
   });
+  it("別のパネルや旧ストレージの変更とは期間を共有しない", async () => {
+    const snapshot: PageSnapshot = {
+      kind: "ready",
+      channel: "Example",
+      canLoadMore: false,
+      empty: false,
+      videos: [video("a", 100, 2)],
+    };
+    await render(snapshot);
+    await chooseRange("month");
+    const otherContainer = document.createElement("div");
+    document.body.append(otherContainer);
+    const otherRoot = createRoot(otherContainer);
+    try {
+      await act(async () => otherRoot.render(<SidepanelApp />));
+      expectRange("all", otherContainer);
+      await chooseRange("week", otherContainer);
+      await act(async () => {
+        await fakeBrowser.storage.local.set({ period: "year" });
+      });
+      expectRange("month");
+      expectRange("week", otherContainer);
+    } finally {
+      act(() => otherRoot.unmount());
+      otherContainer.remove();
+    }
+  });
   it("期間を選んでから閉じて開き直すと、期間指定なしに戻り自動読み込みを始めない", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
@@ -270,7 +316,9 @@ describe("SidepanelApp", () => {
         : Promise.resolve(undefined),
     );
     await chooseRange("month");
-    expect(container.querySelector("header progress")).not.toBeNull();
+    expect(
+      container.querySelector('header [role="progressbar"]'),
+    ).not.toBeNull();
     await act(async () => {
       await fakeBrowser.runtime.onMessage.trigger(
         { type: "mokumoku:snapshot", snapshot },
@@ -300,7 +348,7 @@ describe("SidepanelApp", () => {
       } as Browser.tabs.Tab);
     });
     expectRange("all");
-    expect(container.querySelector("header progress")).toBeNull();
+    expect(container.querySelector('header [role="progressbar"]')).toBeNull();
     expect(send).toHaveBeenCalledWith(1, { type: "mokumoku:load-cancel" });
     await act(async () => {
       finishLoad("cancelled");
@@ -311,7 +359,7 @@ describe("SidepanelApp", () => {
       );
     });
     expectRange("all");
-    expect(container.querySelector("header progress")).toBeNull();
+    expect(container.querySelector('header [role="progressbar"]')).toBeNull();
     const loadRequests = () =>
       send.mock.calls.filter(
         (call: unknown[]) =>
@@ -334,7 +382,7 @@ describe("SidepanelApp", () => {
         );
       });
       expectRange("all");
-      expect(container.querySelector("header progress")).toBeNull();
+      expect(container.querySelector('header [role="progressbar"]')).toBeNull();
       expect(loadRequests()).toHaveLength(2);
     }
   });
@@ -425,7 +473,9 @@ describe("SidepanelApp", () => {
       untilAgeMs: 30.4375 * DAY,
     });
     expect(status()).toBe("Loading… 1 videos");
-    expect(container.querySelector("header progress")).not.toBeNull();
+    expect(
+      container.querySelector('header [role="progressbar"]'),
+    ).not.toBeNull();
     await act(async () => {
       button("Cancel").click();
     });
@@ -434,7 +484,7 @@ describe("SidepanelApp", () => {
       finish("cancelled");
     });
     expect(status()).toBe("Loading canceled");
-    expect(container.querySelector("header progress")).toBeNull();
+    expect(container.querySelector('header [role="progressbar"]')).toBeNull();
     for (const canLoadMore of [false, true]) {
       await act(async () => {
         await fakeBrowser.runtime.onMessage.trigger(

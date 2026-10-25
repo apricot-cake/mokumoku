@@ -5,6 +5,11 @@
     "jsx": "react-jsx",
     // scripts/*.ts を Node の型除去でそのまま実行できるよう、型だけの構文に限る。
     "erasableSyntaxOnly": true,
+    "paths": {
+      "@/*": ["./*"],
+      "#i18n": ["./.wxt/i18n/index.ts"],
+      "#i18n/*": ["./.wxt/i18n/index.ts/*"]
+    },
     // 拡張機能 API は wxt/browser の `browser` から使う。chrome の型は入れず、
     // `chrome.*` の呼び出しをコンパイルエラーにする。
     "types": ["node"]

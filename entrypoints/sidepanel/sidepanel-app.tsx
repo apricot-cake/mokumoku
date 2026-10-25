@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useId, useMemo, useRef } from "react";
 import { t } from "../../utils/i18n.ts";
 import { LOAD_UNTIL_MAX_VIDEOS } from "../../utils/load-more.ts";
 import {
@@ -11,6 +11,26 @@ import {
 import { type RankedVideo, rankVideos } from "../../utils/ranking.ts";
 import { MIN_BASELINE_SAMPLES } from "../../utils/score.ts";
 import type { PageSnapshot } from "../../utils/snapshot.ts";
+import { Badge } from "./components/ui/badge.tsx";
+import { Button } from "./components/ui/button.tsx";
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "./components/ui/empty.tsx";
+import { Field, FieldLabel } from "./components/ui/field.tsx";
+import { Progress } from "./components/ui/progress.tsx";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./components/ui/select.tsx";
+import { Separator } from "./components/ui/separator.tsx";
+import { cn } from "./lib/utils.ts";
 import { type LoadState, useLoader } from "./use-loader.ts";
 import { usePageSnapshot } from "./use-page-snapshot.ts";
 import { usePeriod } from "./use-period.ts";
@@ -31,24 +51,41 @@ function PeriodSelect({
   value: PeriodId;
   onChange: (period: PeriodId) => void;
 }) {
+  const id = useId();
+  const items = PERIODS.map(({ id }) => ({
+    value: id,
+    label: PERIOD_LABELS[id](),
+  }));
   // 選ぶと表示を絞るだけでなく、その範囲まで読み込むことをラベルで示す。
   return (
-    <label className="flex shrink-0 items-center gap-1.5 text-xs text-muted-foreground">
-      {t("panelPeriodLabel")}
-      <select
+    <Field
+      orientation="horizontal"
+      className="w-auto shrink-0 *:data-[slot=field-label]:flex-none"
+    >
+      <FieldLabel htmlFor={id} className="whitespace-nowrap">
+        {t("panelPeriodLabel")}
+      </FieldLabel>
+      <Select
+        items={items}
         value={value}
-        onChange={(event) => {
-          if (isPeriodId(event.target.value)) onChange(event.target.value);
+        onValueChange={(next) => {
+          if (isPeriodId(next)) onChange(next);
         }}
-        className="h-8 shrink-0 rounded-md border bg-background px-2 text-xs text-foreground focus-visible:outline-2 focus-visible:outline-ring"
       >
-        {PERIODS.map((period) => (
-          <option key={period.id} value={period.id}>
-            {PERIOD_LABELS[period.id]()}
-          </option>
-        ))}
-      </select>
-    </label>
+        <SelectTrigger id={id} aria-label={t("panelPeriodLabel")}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent align="start" alignItemWithTrigger={false}>
+          <SelectGroup>
+            {items.map((item) => (
+              <SelectItem key={item.value} value={item.value}>
+                {item.label}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+    </Field>
   );
 }
 
@@ -63,10 +100,12 @@ const ratioNumber = new Intl.NumberFormat(undefined, {
 
 function Notice({ title, hint }: { title: string; hint?: string }) {
   return (
-    <div className="flex flex-col gap-1 p-4 text-sm">
-      <p className="font-medium text-foreground">{title}</p>
-      {hint ? <p className="text-muted-foreground">{hint}</p> : null}
-    </div>
+    <Empty className="items-start p-4 text-left text-wrap">
+      <EmptyHeader className="max-w-none items-start">
+        <EmptyTitle>{title}</EmptyTitle>
+        {hint ? <EmptyDescription>{hint}</EmptyDescription> : null}
+      </EmptyHeader>
+    </Empty>
   );
 }
 
@@ -94,12 +133,13 @@ function VideoRow({ video }: { video: RankedVideo }) {
             >
               {video.title}
             </p>
-            <span
-              className="shrink-0 rounded bg-accent px-1.5 py-0.5 text-right text-xs font-semibold text-accent-foreground tabular-nums"
+            <Badge
+              variant="secondary"
+              className="tabular-nums"
               title={t("panelRatioDescription")}
             >
               ×{ratioNumber.format(video.ratio)}
-            </span>
+            </Badge>
           </div>
           <p className="truncate text-xs text-muted-foreground">
             {t("panelViews", [compactNumber.format(video.views)])} ·{" "}
@@ -110,9 +150,6 @@ function VideoRow({ video }: { video: RankedVideo }) {
     </li>
   );
 }
-
-const linkButtonClass =
-  "shrink-0 rounded text-xs font-medium text-primary hover:underline focus-visible:outline-2 focus-visible:outline-ring";
 
 /** チャンネル名の横に置く件数と読み込み状態。長い文は省略し、操作は残す。 */
 function StatusLine({
@@ -171,19 +208,15 @@ function StatusLine({
         {text}
       </p>
       {action ? (
-        <button
-          type="button"
-          onClick={action.onClick}
-          className={linkButtonClass}
-        >
+        <Button type="button" onClick={action.onClick} variant="link" size="xs">
           {action.label}
-        </button>
+        </Button>
       ) : null}
     </div>
   );
 }
 
-/** 「手動」のときにヘッダーへ置く、1回分の追加読み込み。 */
+/** 「期間指定なし」のときにヘッダーへ置く、1回分の追加読み込み。 */
 function LoadMoreButton({
   canLoadMore,
   loading,
@@ -194,18 +227,18 @@ function LoadMoreButton({
   onLoad: () => void;
 }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
       onClick={onLoad}
       disabled={loading || !canLoadMore}
-      className="h-8 shrink-0 rounded-md border px-3 text-xs font-medium text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-60 disabled:hover:bg-transparent"
     >
       {!canLoadMore
         ? t("panelAllLoaded")
         : loading
           ? t("panelLoadingMore")
           : t("panelLoadMore")}
-    </button>
+    </Button>
   );
 }
 
@@ -272,8 +305,16 @@ function ChannelRanking({
             }}
           />
         </div>
-        <div className="flex items-center justify-between gap-2">
-          <PeriodSelect value={period} onChange={setPeriod} />
+        <div className="flex flex-wrap items-center gap-2">
+          <div className={cn(period === "all" && "grow")}>
+            <PeriodSelect
+              value={period}
+              onChange={(next) => {
+                if (state.kind === "loading") cancel();
+                setPeriod(next);
+              }}
+            />
+          </div>
           {period === "all" ? (
             <LoadMoreButton
               canLoadMore={snapshot.canLoadMore}
@@ -284,9 +325,10 @@ function ChannelRanking({
         </div>
         {state.kind === "loading" ? (
           // 進み具合は事前に分からないので、値を持たない不確定の進捗バーにする。
-          <progress
+          <Progress
             aria-label={t("panelLoadingMore")}
-            className="absolute inset-x-0 bottom-0 h-0.5 w-full"
+            value={null}
+            className="absolute inset-x-0 bottom-0"
           />
         ) : null}
       </header>
@@ -309,7 +351,8 @@ function ChannelRanking({
             </p>
           ) : null}
           {ranking.fresh.length > 0 ? (
-            <section className="flex flex-col border-t">
+            <section className="flex flex-col">
+              <Separator />
               <h2 className="px-4 pt-3 text-xs font-medium text-muted-foreground">
                 {t("panelProvisional")}
               </h2>
