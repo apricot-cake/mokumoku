@@ -1,6 +1,6 @@
 extensionDescription: "Find new videos taking off on a YouTube channel by comparing their views with typical videos of the same age."
 
-panelOpenChannel: "Open the Videos tab of a YouTube channel"
+panelOpenChannel: "Open the Videos or Live tab of a YouTube channel"
 panelReloadHint: "If it's already open, reload the page"
 panelSwitchToNewest: "Sort the videos by Latest"
 panelSwitchToNewestHint: "Popular and Oldest orders don't give a fair baseline"

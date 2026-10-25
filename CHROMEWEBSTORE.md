@@ -16,7 +16,7 @@
 
 mokumoku は、公開からの経過時間を考慮して、同じチャンネルの中で普段より伸びている動画を見つける拡張機能です。
 
-チャンネルの「動画」タブを「新しい順」で開き、mokumoku のボタンを押すと、比較結果がサイドパネルに表示されます。「直近1か月」などの期間を選んで、動画をまとめて追加できます。
+チャンネルの「動画」または「ライブ」タブを「新しい順」で開き、mokumoku のボタンを押すと、比較結果がサイドパネルに表示されます。「直近1か月」などの期間を選んで、動画をまとめて追加できます。配信中・配信予定の動画は対象外です。
 
 単一の目的: YouTubeチャンネル内で、公開からの経過時間を考慮して再生数が伸びている動画を見つける。
 
@@ -28,7 +28,7 @@ A video was just published and still has few views, yet it is attracting more vi
 
 mokumoku helps you find videos that are taking off within the same YouTube channel, taking the time since publication into account.
 
-Open a channel’s Videos tab, sort by Latest, and click the mokumoku button to see the comparison in the side panel. Choose a period such as the past month to load more videos together.
+Open a channel’s Videos or Live tab, sort by Latest, and click the mokumoku button to see the comparison in the side panel. Choose a period such as the past month to load more videos together. Ongoing and upcoming live streams are excluded.
 
 ## 必要な画像
 

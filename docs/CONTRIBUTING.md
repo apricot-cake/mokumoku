@@ -58,7 +58,7 @@ pnpm run browser:open
 pnpm run smoke
 ```
 
-別のチャンネルを使う場合は、`pnpm run smoke <動画タブのURL>` と指定します。
+別のチャンネルを使う場合は、`pnpm run smoke <動画またはライブタブのURL>` と指定します。
 
 ## Storybook で画面を確認する
 

@@ -1,6 +1,6 @@
 extensionDescription: "YouTubeチャンネルの新着動画を、同じ経過時間の通常の再生数と比べた倍率で並べます。新しいのに伸びている動画を見つけられます。"
 
-panelOpenChannel: "YouTubeチャンネルの「動画」タブを開いてください"
+panelOpenChannel: "YouTubeチャンネルの「動画」または「ライブ」タブを開いてください"
 panelReloadHint: "開いている場合は、ページを再読み込みしてください"
 panelSwitchToNewest: "並び順を「新しい順」にしてください"
 panelSwitchToNewestHint: "人気順や古い順では、比べる基準を正しく出せません"

@@ -203,18 +203,21 @@ describe("SidepanelApp", () => {
     expect(container.textContent).toContain("Not enough videos");
     expect(container.querySelector("h1")?.textContent).toBe("Small channel");
   });
+
   it("content script が応答しないタブでは案内を出す", async () => {
     await render(new Error("Receiving end does not exist."));
     expect(container.textContent).toContain(
-      "Open the Videos tab of a YouTube channel",
+      "Open the Videos or Live tab of a YouTube channel",
     );
     expect(container.textContent).toContain("reload the page");
   });
+
   it("新しい順でなければ切り替えを促す", async () => {
     const snapshot: PageSnapshot = { kind: "not-newest", channel: "c" };
     await render(snapshot);
     expect(container.textContent).toContain("Sort the videos by Latest");
   });
+
   it("倍率順の一覧と、公開1日未満の欄を出す", async () => {
     const typical = [1, 2, 4, 7, 14, 30, 60, 90, 180, 365].map((days) =>
       video(`d${days}`, Math.round(10000 * Math.sqrt(days)), days),
@@ -242,6 +245,7 @@ describe("SidepanelApp", () => {
     expect(fresh?.textContent).toContain("Less than a day old");
     expect(fresh?.textContent).toContain("動画 fresh");
   });
+
   it("期間指定なしのときは、ヘッダーのボタンで1回分を読み込む", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
@@ -259,6 +263,7 @@ describe("SidepanelApp", () => {
     expect(send).toHaveBeenCalledWith(1, { type: "mokumoku:load-more" });
     expect(status()).toBe("Couldn't load more videos. Try again.");
   });
+
   it("期間を選ぶと、それより古い動画を一覧から隠し、永続保存しない", async () => {
     const typical = [1, 2, 4, 7, 14, 30, 60, 90, 180, 365].map((days) =>
       video(`d${days}`, Math.round(10000 * Math.sqrt(days)), days),
@@ -280,6 +285,7 @@ describe("SidepanelApp", () => {
     expect(container.textContent).toContain("4 older videos are hidden");
     expect(await fakeBrowser.storage.local.get("period")).toEqual({});
   });
+
   it.each(["", "0", "-1", "1.5"])(
     "任意期間の値 %s は適用できず、入力だけで読み込まない",
     async (value) => {
@@ -302,6 +308,7 @@ describe("SidepanelApp", () => {
       );
     },
   );
+
   it.each([
     ["35", "day", 35 * DAY],
     ["2", "month", 2 * 30.4375 * DAY],
@@ -337,6 +344,7 @@ describe("SidepanelApp", () => {
       });
     },
   );
+
   it("適用した任意期間で絞り込み、別の期間やページへ移ると入力を初期化する", async () => {
     let pageUrl = "https://www.youtube.com/@example/videos";
     vi.spyOn(fakeBrowser.tabs, "get").mockImplementation((() =>
@@ -390,6 +398,7 @@ describe("SidepanelApp", () => {
       expect.objectContaining({ type: "mokumoku:load-more" }),
     );
   });
+
   it("旧版で保存した期間は使わず、期間指定なしから開く", async () => {
     await fakeBrowser.storage.local.set({ period: "week" });
     const snapshot: PageSnapshot = {
@@ -406,6 +415,7 @@ describe("SidepanelApp", () => {
       expect.objectContaining({ type: "mokumoku:load-more" }),
     );
   });
+
   it("別のパネルや旧ストレージの変更とは期間を共有しない", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
@@ -433,6 +443,7 @@ describe("SidepanelApp", () => {
       otherContainer.remove();
     }
   });
+
   it("期間を選んでから閉じて開き直すと、期間指定なしに戻り自動読み込みを始めない", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
@@ -456,6 +467,7 @@ describe("SidepanelApp", () => {
       expect.objectContaining({ type: "mokumoku:load-more" }),
     );
   });
+
   it("一覧更新と別タブでは期間を保ち、動画とライブを往復すると期間指定なしに戻す", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
@@ -550,6 +562,7 @@ describe("SidepanelApp", () => {
       expect(loadRequests()).toHaveLength(2);
     }
   });
+
   it.each(["month", "all"])(
     "選択範囲 %s の後に一覧の続きが現れた場合も、自動読み込みの条件を守る",
     async (period) => {
@@ -609,6 +622,7 @@ describe("SidepanelApp", () => {
       expect(loadRequests()).toHaveLength(period === "month" ? 1 : 0);
     },
   );
+
   it("期間を選ぶと、期間を超える動画まで自動で読み込み、中止と再開ができる", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
@@ -675,6 +689,7 @@ describe("SidepanelApp", () => {
     });
     expect(status()).toBe("Stopped after loading 500 videos");
   });
+
   it("期間を超える動画まで読み込み済みなら、読み込まずに件数を示す", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
@@ -698,6 +713,7 @@ describe("SidepanelApp", () => {
       container.querySelectorAll('header button:not([role="combobox"])'),
     ).toHaveLength(0);
   });
+
   it("最後まで読み込んだらボタンを無効にする", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
@@ -709,6 +725,7 @@ describe("SidepanelApp", () => {
     await render(snapshot);
     expect(button("All loaded").disabled).toBe(true);
   });
+
   it("基準を出せないときは読み込みを促す", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
