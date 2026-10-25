@@ -171,7 +171,8 @@ await withDevBrowser(async (browser) => {
       const current = await readSnapshot(tabId);
       if (isPageSnapshot(current)) {
         if (current.kind === "ready") return current;
-        throw new Error(`一覧を読めませんでした: ${current.kind}`);
+        if (current.kind !== "loading")
+          throw new Error(`一覧を読めませんでした: ${current.kind}`);
       } else if (current !== null) {
         throw new Error(
           `content script の応答が不正です: ${JSON.stringify(current)}`,
@@ -184,6 +185,65 @@ await withDevBrowser(async (browser) => {
     );
   };
 
+  // source の前後の読み取りが loading の間だけ、誤った空状態を照合する。
+  // DOM を書き換えず、短い遷移で loading を観測できなかった場合も記録する。
+  const watchNavigation = (panel: Page, section: string) => {
+    const tabId = Number(new URL(panel.url()).searchParams.get("tabId"));
+    let stopped = false;
+    let failure: unknown;
+    let loadingSamples = 0;
+    let checkedSamples = 0;
+    const sampling = (async () => {
+      while (!stopped) {
+        const before = await readSnapshot(tabId);
+        if (isPageSnapshot(before) && before.kind === "loading") {
+          loadingSamples += 1;
+          const forbidden = await panel.evaluate(() =>
+            [
+              ...document.querySelectorAll(
+                '[data-slot="empty-title"], header button',
+              ),
+            ]
+              .filter((element) => element.getClientRects().length > 0)
+              .map((element) => element.textContent?.trim() ?? "")
+              .find((text) =>
+                /Not enough videos|比べるための動画|^All loaded$|^すべて読み込み済み$/.test(
+                  text,
+                ),
+              ),
+          );
+          const after = await readSnapshot(tabId);
+          if (isPageSnapshot(after) && after.kind === "loading") {
+            checkedSamples += 1;
+            if (forbidden)
+              throw new Error(
+                `遷移中の loading に誤った案内が表示されました: ${forbidden}`,
+              );
+          }
+        }
+        if (!stopped) await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    })().catch((error: unknown) => {
+      failure = error;
+      stopped = true;
+    });
+    return async () => {
+      stopped = true;
+      await sampling;
+      const observed = `${section} 遷移: loading観測${loadingSamples}回、前後loading一致${checkedSamples}回`;
+      if (failure !== undefined) {
+        console.error(`[mokumoku] ${observed}（表示の照合で失敗）`);
+        throw failure;
+      }
+      console.log(
+        loadingSamples === 0
+          ? `[mokumoku] ${section} 遷移: loading未観測（この経路の一時表示は未検証）`
+          : checkedSamples === 0
+            ? `[mokumoku] ${observed}（一時表示は未検証）`
+            : `[mokumoku] ${observed}（照合中の本数不足・全読込の表示なし）`,
+      );
+    };
+  };
   const page = await browser.newPage();
   try {
     await page.goto(url, { waitUntil: "domcontentloaded" });
@@ -462,6 +522,7 @@ await withDevBrowser(async (browser) => {
       : "videos";
     const otherSection = originalSection === "videos" ? "streams" : "videos";
     const moveSection = async (section: string) => {
+      const finishWatching = watchNavigation(panel, section);
       try {
         const clicked = await page.evaluate((destination) => {
           const labels =
@@ -501,7 +562,7 @@ await withDevBrowser(async (browser) => {
           `[mokumoku] ${section} へ移動: パネルを維持し、読み込み範囲は期間指定なし（自動読み込みなし）`,
         );
       } finally {
-        // 移動後の状態は直前の検査で確認済み。
+        await finishWatching();
       }
     };
     await moveSection(otherSection);

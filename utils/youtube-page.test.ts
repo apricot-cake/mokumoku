@@ -110,6 +110,36 @@ describe("isNewestOrder", () => {
 });
 
 describe("readSnapshot", () => {
+  it("動画タブで一覧がまだ生成されていない間は読み込み中", () => {
+    document.body.innerHTML = "<ytd-browse></ytd-browse>";
+    expect(readSnapshot(document, VIDEOS_PATH)).toEqual({ kind: "loading" });
+  });
+
+  it("進捗が100でも非表示になるまでは途中のカードを確定しない", () => {
+    page(card("a1", text("55万", "55万回視聴") + text("1 日前")));
+    const progress = document.createElement("yt-page-navigation-progress");
+    progress.setAttribute("aria-valuenow", "100");
+    document.body.prepend(progress);
+    expect(readSnapshot(document, VIDEOS_PATH)).toEqual({ kind: "loading" });
+    progress.setAttribute("hidden", "");
+    expect(readSnapshot(document, VIDEOS_PATH)).toMatchObject({
+      kind: "ready",
+      videos: [{ id: "a1" }],
+      canLoadMore: false,
+      empty: false,
+    });
+  });
+
+  it("グリッドがなくても動画なしの案内があれば読み込み完了", () => {
+    document.body.innerHTML =
+      "<ytd-browse><ytd-message-renderer>動画なし</ytd-message-renderer></ytd-browse>";
+    expect(readSnapshot(document, VIDEOS_PATH)).toMatchObject({
+      kind: "ready",
+      videos: [],
+      empty: true,
+    });
+  });
+
   it("表示中の一覧から再生数と経過時間を読む", () => {
     page(
       chips(0) +

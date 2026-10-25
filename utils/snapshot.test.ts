@@ -12,6 +12,7 @@ const video = { id: "a1", title: "t", views: 1, ageMs: 1, ageText: "1 日前" };
 describe("isPageSnapshot", () => {
   it("正しい形を受け付ける", () => {
     expect(isPageSnapshot({ kind: "unsupported" })).toBe(true);
+    expect(isPageSnapshot({ kind: "loading" })).toBe(true);
     expect(isPageSnapshot({ kind: "not-newest", channel: "c" })).toBe(true);
     expect(
       isPageSnapshot({

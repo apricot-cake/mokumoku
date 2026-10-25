@@ -11,6 +11,7 @@ export interface VideoEntry {
 
 export type PageSnapshot =
   | { readonly kind: "unsupported" }
+  | { readonly kind: "loading" }
   | { readonly kind: "not-newest"; readonly channel: string }
   | {
       readonly kind: "ready";
@@ -93,6 +94,7 @@ export function isPageSnapshot(value: unknown): value is PageSnapshot {
   const snapshot = value as Record<string, unknown>;
   switch (snapshot.kind) {
     case "unsupported":
+    case "loading":
       return true;
     case "not-newest":
       return typeof snapshot.channel === "string";

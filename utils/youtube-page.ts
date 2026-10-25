@@ -10,6 +10,9 @@ export const CARD = `${GRID} ytd-rich-item-renderer:not([hidden])`;
 // 「このチャンネルには動画がありません」などの案内。文言は表示言語で変わる
 // ので、要素の有無で見る。
 const EMPTY_MESSAGE = `${BROWSE} ytd-message-renderer`;
+// 遷移中は aria-valuenow が 100 になってもカードの生成が続く。
+// YouTube が進捗表示を hidden にするまでは、途中の一覧として扱う。
+const NAVIGATION_PROGRESS = "yt-page-navigation-progress:not([hidden])";
 // 一覧の末尾に置かれ、画面に入ると次の動画を読み込む要素。最後まで読み込むと消える。
 export const CONTINUATION = `${GRID} ytd-continuation-item-renderer`;
 const TITLE_LINK =
@@ -169,6 +172,12 @@ export function readSnapshot(doc: Document, pathname: string): PageSnapshot {
     (pathKind === "root" && doc.querySelector(GRID) === null)
   )
     return { kind: "unsupported" };
+  if (
+    doc.querySelector(NAVIGATION_PROGRESS) !== null ||
+    (doc.querySelector(GRID) === null &&
+      doc.querySelector(EMPTY_MESSAGE) === null)
+  )
+    return { kind: "loading" };
   const channel = readChannelName(doc);
   const seen = new Set<string>();
   const videos: VideoEntry[] = [];

@@ -458,6 +458,8 @@ function ChannelRanking({
 export function SidepanelApp() {
   const page = usePageSnapshot();
   if (page === undefined) return null;
+  if (page?.snapshot.kind === "loading")
+    return <Notice title={t("panelEmpty")} />;
   if (page === null || page.snapshot.kind === "unsupported") {
     return (
       <Notice

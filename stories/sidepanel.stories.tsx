@@ -45,7 +45,10 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Ranking: Story = { name: "動画一覧" };
-
+export const PageLoading: Story = {
+  name: "ページ読み込み中",
+  args: { page: { ...readyPage, snapshot: { kind: "loading" } } },
+};
 export const CustomPeriod: Story = {
   name: "期間指定モック",
   args: { period: "custom" },

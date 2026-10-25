@@ -179,6 +179,30 @@ afterEach(() => {
 });
 
 describe("SidepanelApp", () => {
+  it("ページ読み込み中は不足の案内を出さず、完了後に判定する", async () => {
+    await render({ kind: "loading" });
+    expect(container.textContent).toContain("Loading videos");
+    expect(container.textContent).not.toContain("Not enough videos");
+    expect(container.querySelector("header")).toBeNull();
+    await act(async () => {
+      await fakeBrowser.runtime.onMessage.trigger(
+        {
+          type: "mokumoku:snapshot",
+          snapshot: {
+            kind: "ready",
+            channel: "Small channel",
+            videos: [video("only", 100, 2)],
+            canLoadMore: false,
+            empty: false,
+          },
+        },
+        { tab: { id: 1 } as Browser.tabs.Tab },
+        vi.fn(),
+      );
+    });
+    expect(container.textContent).toContain("Not enough videos");
+    expect(container.querySelector("h1")?.textContent).toBe("Small channel");
+  });
   it("content script が応答しないタブでは案内を出す", async () => {
     await render(new Error("Receiving end does not exist."));
     expect(container.textContent).toContain(
