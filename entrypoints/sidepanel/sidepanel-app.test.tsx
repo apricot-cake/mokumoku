@@ -136,6 +136,36 @@ function selectedText(trigger: HTMLElement): string | undefined {
     ?.textContent?.trim();
 }
 
+function customInput(): HTMLInputElement {
+  const input = container.querySelector<HTMLInputElement>(
+    'input[type="number"]',
+  );
+  if (!input) throw new Error("期間の数値入力がありません。");
+  return input;
+}
+
+function enterCustomValue(value: string): void {
+  const input = customInput();
+  const setter = Object.getOwnPropertyDescriptor(
+    HTMLInputElement.prototype,
+    "value",
+  )?.set;
+  if (!setter) throw new Error("数値入力の値を設定できません。");
+  setter.call(input, value);
+  input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+async function chooseCustomUnit(unit: string): Promise<void> {
+  const labels: Record<string, string> = {
+    day: "days",
+    month: "months",
+    year: "years",
+  };
+  const label = labels[unit];
+  if (!label) throw new Error(`未知の期間単位: ${unit}`);
+  await chooseOption(combobox("Unit"), label);
+}
+
 beforeEach(() => {
   fakeBrowser.reset();
   container = document.createElement("div");
@@ -225,6 +255,116 @@ describe("SidepanelApp", () => {
     expect(ranked.some((row) => row.includes("動画 d60"))).toBe(false);
     expect(container.textContent).toContain("4 older videos are hidden");
     expect(await fakeBrowser.storage.local.get("period")).toEqual({});
+  });
+  it.each(["", "0", "-1", "1.5"])(
+    "任意期間の値 %s は適用できず、入力だけで読み込まない",
+    async (value) => {
+      const send = await render({
+        kind: "ready",
+        channel: "Example",
+        canLoadMore: true,
+        empty: false,
+        videos: [video("a", 100, 2)],
+      });
+      await chooseRange("custom");
+      expect(customInput().min).toBe("1");
+      expect(customInput().step).toBe("1");
+      await act(async () => enterCustomValue(value));
+      expect(button("Apply").disabled).toBe(true);
+      expect(container.querySelector('header [role="progressbar"]')).toBeNull();
+      expect(send).not.toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ type: "mokumoku:load-more" }),
+      );
+    },
+  );
+  it.each([
+    ["35", "day", 35 * DAY],
+    ["2", "month", 2 * 30.4375 * DAY],
+    ["1", "year", 365.25 * DAY],
+  ])(
+    "任意期間 %s %s は適用したときだけ読み込む",
+    async (value, unit, untilAgeMs) => {
+      const send = await render(
+        {
+          kind: "ready",
+          channel: "Example",
+          canLoadMore: true,
+          empty: false,
+          videos: [video("a", 100, 2)],
+        },
+        () => Promise.resolve("timeout"),
+      );
+      await chooseRange("custom");
+      expect(customInput().value).toBe("30");
+      await act(async () => {
+        enterCustomValue(String(value));
+        await chooseCustomUnit(String(unit));
+      });
+      expect(button("Apply").disabled).toBe(false);
+      expect(send).not.toHaveBeenCalledWith(
+        1,
+        expect.objectContaining({ type: "mokumoku:load-more" }),
+      );
+      await act(async () => button("Apply").click());
+      expect(send).toHaveBeenCalledWith(1, {
+        type: "mokumoku:load-more",
+        untilAgeMs,
+      });
+    },
+  );
+  it("適用した任意期間で絞り込み、別の期間やページへ移ると入力を初期化する", async () => {
+    let pageUrl = "https://www.youtube.com/@example/videos";
+    vi.spyOn(fakeBrowser.tabs, "get").mockImplementation((() =>
+      Promise.resolve({
+        id: 1,
+        url: pageUrl,
+      } as Browser.tabs.Tab)) as typeof fakeBrowser.tabs.get);
+    const videos = [1, 2, 3, 4, 7, 14, 21, 30, 40, 100].map((days) =>
+      video(`d${days}`, Math.round(10000 * Math.sqrt(days)), days),
+    );
+    const send = await render({
+      kind: "ready",
+      channel: "Example",
+      canLoadMore: true,
+      empty: false,
+      videos,
+    });
+    await chooseRange("custom");
+    await act(async () => enterCustomValue("35"));
+    expect(container.querySelectorAll("ol > li")).toHaveLength(10);
+    await act(async () => button("Apply").click());
+    expect(container.querySelectorAll("ol > li")).toHaveLength(8);
+    expect(container.textContent).toContain("2 older videos are hidden");
+    await act(async () => {
+      enterCustomValue("2");
+      await chooseCustomUnit("month");
+    });
+    expect(container.querySelectorAll("ol > li")).toHaveLength(8);
+    await act(async () => button("Apply").click());
+    expect(container.querySelectorAll("ol > li")).toHaveLength(9);
+    await chooseRange("month");
+    expect(container.querySelector('input[type="number"]')).toBeNull();
+    await chooseRange("custom");
+    expect(customInput().value).toBe("30");
+    expect(selectedText(combobox("Unit"))).toBe("days");
+    expect(container.querySelectorAll("ol > li")).toHaveLength(10);
+    await act(async () => enterCustomValue("35"));
+    pageUrl = "https://www.youtube.com/@example/streams";
+    await act(async () => {
+      await fakeBrowser.tabs.onUpdated.trigger(1, { url: pageUrl }, {
+        id: 1,
+        url: pageUrl,
+      } as Browser.tabs.Tab);
+    });
+    expectRange("all");
+    expect(container.querySelector('input[type="number"]')).toBeNull();
+    await chooseRange("custom");
+    expect(customInput().value).toBe("30");
+    expect(send).not.toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ type: "mokumoku:load-more" }),
+    );
   });
   it("旧版で保存した期間は使わず、期間指定なしから開く", async () => {
     await fakeBrowser.storage.local.set({ period: "week" });

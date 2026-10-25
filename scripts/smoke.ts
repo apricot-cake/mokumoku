@@ -17,7 +17,8 @@ const CARD =
   "ytd-browse:not([hidden]) ytd-rich-grid-renderer ytd-rich-item-renderer";
 const RANGE_TRIGGER =
   'header [role="combobox"][aria-label="読み込み範囲"], header [role="combobox"][aria-label="Load range"]';
-
+const UNIT_TRIGGER =
+  'header [role="combobox"][aria-label="単位"], header [role="combobox"][aria-label="Unit"]';
 const RANGE_LABELS: Record<PeriodId, readonly string[]> = {
   all: ["期間指定なし", "No date range"],
   week: ["直近1週間", "Past week"],
@@ -25,7 +26,13 @@ const RANGE_LABELS: Record<PeriodId, readonly string[]> = {
   quarter: ["直近3か月", "Past 3 months"],
   halfYear: ["直近6か月", "Past 6 months"],
   year: ["直近1年", "Past year"],
+  custom: ["期間を指定…", "Custom range…"],
 };
+const UNIT_LABELS = {
+  day: ["日", "days"],
+  month: ["月", "months"],
+  year: ["年", "years"],
+} as const;
 
 /** portal 内の項目を待ち、利用者と同じクリック操作で選ぶ。 */
 async function chooseOption(
@@ -385,6 +392,50 @@ await withDevBrowser(async (browser) => {
         );
       console.log(`[mokumoku] 読み込み完了: ${summary}`);
     }
+
+    // 任意期間は入力だけでは読み込まず、適用してから指定範囲を表示する。
+    await chooseRange(panel, "custom");
+    const customNumber = 'header input[type="number"]';
+    await panel.waitForSelector(customNumber, { timeout: 5000 });
+    for (const [value, unit] of [
+      ["35", "day"],
+      ["2", "month"],
+    ] as const) {
+      await panel.locator(customNumber).fill(value);
+      await chooseOption(panel, UNIT_TRIGGER, UNIT_LABELS[unit]);
+      if ((await panel.$('header [role="progressbar"]')) !== null)
+        throw new Error("任意期間を適用する前に読み込みが始まりました。");
+      await panel.evaluate(() => {
+        const apply = [
+          ...document.querySelectorAll<HTMLButtonElement>("header button"),
+        ].find((element) =>
+          /^(適用|Apply)$/.test(element.textContent?.trim() ?? ""),
+        );
+        if (!apply || apply.disabled)
+          throw new Error("任意期間を適用できません。");
+        apply.click();
+      });
+      await panel.waitForFunction(
+        () =>
+          document.querySelector('header [role="progressbar"]') === null &&
+          /範囲内|in range/.test(
+            document.querySelector('header [role="status"]')?.textContent ?? "",
+          ),
+        { timeout: 60000 },
+      );
+      const applied = await panel.$eval(
+        customNumber,
+        (element) => (element as HTMLInputElement).value,
+      );
+      if (applied !== value)
+        throw new Error(`任意期間の入力値が変わりました: ${applied}`);
+      console.log(
+        `[mokumoku] 任意期間 ${value} ${unit} を適用: ${await statusText()}`,
+      );
+    }
+    await chooseRange(panel, "all");
+    if ((await panel.$(customNumber)) !== null)
+      throw new Error("期間指定なしに戻しても任意期間の入力が残っています。");
 
     // 読み込み範囲を絞ると、それより古い動画が一覧から消え、非表示の件数が出る。
     const rankedBefore = await panel.$$eval("ol > li", (rows) => rows.length);

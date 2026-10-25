@@ -1,7 +1,8 @@
-import { useEffect, useId, useMemo, useRef } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { t } from "../../utils/i18n.ts";
 import { LOAD_UNTIL_MAX_VIDEOS } from "../../utils/load-more.ts";
 import {
+  type CustomPeriod,
   isPeriodId,
   isWithinPeriod,
   PERIODS,
@@ -19,7 +20,8 @@ import {
   EmptyHeader,
   EmptyTitle,
 } from "./components/ui/empty.tsx";
-import { Field, FieldLabel } from "./components/ui/field.tsx";
+import { Field, FieldGroup, FieldLabel } from "./components/ui/field.tsx";
+import { Input } from "./components/ui/input.tsx";
 import { Progress } from "./components/ui/progress.tsx";
 import {
   Select,
@@ -42,6 +44,7 @@ const PERIOD_LABELS: Record<PeriodId, () => string> = {
   quarter: () => t("panelPeriodQuarter"),
   halfYear: () => t("panelPeriodHalfYear"),
   year: () => t("panelPeriodYear"),
+  custom: () => t("panelPeriodCustom"),
 };
 
 function PeriodSelect({
@@ -86,6 +89,82 @@ function PeriodSelect({
         </SelectContent>
       </Select>
     </Field>
+  );
+}
+
+function CustomPeriodForm({
+  onApply,
+}: {
+  onApply: (period: CustomPeriod) => void;
+}) {
+  const [value, setValue] = useState("30");
+  const [unit, setUnit] = useState<CustomPeriod["unit"]>("day");
+  const id = useId();
+  const units = [
+    { value: "day", label: t("panelPeriodDay") },
+    { value: "month", label: t("panelPeriodMonthUnit") },
+    { value: "year", label: t("panelPeriodYearUnit") },
+  ];
+  const draft = { value: Number(value), unit };
+  const valid = periodMaxAgeMs("custom", draft) !== null;
+  return (
+    <form
+      className="w-72 max-w-full shrink-0"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (valid) onApply(draft);
+      }}
+    >
+      <FieldGroup className="w-auto flex-row items-center gap-2">
+        <Field
+          orientation="horizontal"
+          className="w-auto shrink-0 *:data-[slot=field-label]:flex-none"
+          data-invalid={!valid || undefined}
+        >
+          <FieldLabel htmlFor={id} className="whitespace-nowrap">
+            {t("panelPeriodAmount")}
+          </FieldLabel>
+          <Input
+            id={id}
+            type="number"
+            min="1"
+            step="1"
+            required
+            value={value}
+            onChange={(event) => setValue(event.target.value)}
+            aria-invalid={!valid || undefined}
+            className="w-20 flex-none"
+          />
+        </Field>
+        <Select
+          items={units}
+          value={unit}
+          onValueChange={(next) => {
+            if (next === "day" || next === "month" || next === "year")
+              setUnit(next);
+          }}
+        >
+          <SelectTrigger
+            aria-label={t("panelPeriodUnit")}
+            className="w-auto min-w-16 shrink-0"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent align="end" alignItemWithTrigger={false}>
+            <SelectGroup>
+              {units.map((item) => (
+                <SelectItem key={item.value} value={item.value}>
+                  {item.label}
+                </SelectItem>
+              ))}
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+        <Button type="submit" disabled={!valid}>
+          {t("panelPeriodApply")}
+        </Button>
+      </FieldGroup>
+    </form>
   );
 }
 
@@ -252,15 +331,18 @@ function ChannelRanking({
   // 倍率の基準には読み込み済みの全動画を使い、期間は表示だけを絞る。
   const ranking = useMemo(() => rankVideos(snapshot.videos), [snapshot]);
   const [period, setPeriod] = usePeriod();
+  const [customPeriod, setCustomPeriod] = useState<CustomPeriod>();
   const { state, run, cancel } = useLoader(tabId);
   const shown =
     ranking.kind === "ranked"
-      ? ranking.videos.filter((video) => isWithinPeriod(video, period))
+      ? ranking.videos.filter((video) =>
+          isWithinPeriod(video, period, customPeriod),
+        )
       : [];
   const hiddenCount =
     ranking.kind === "ranked" ? ranking.videos.length - shown.length : 0;
   const freshCount = ranking.kind === "ranked" ? ranking.fresh.length : 0;
-  const untilAgeMs = periodMaxAgeMs(period);
+  const untilAgeMs = periodMaxAgeMs(period, customPeriod);
   // 新しい順なので、期間を超える動画が1本でもあれば期間内はすべて読み込み済み。
   const periodLoaded =
     untilAgeMs !== null &&
@@ -268,7 +350,7 @@ function ChannelRanking({
 
   // 期間を選んだら、その範囲を超えるまで読み込む。続きがまだなければ待つ。
   // 開始後の一覧更新、中止・失敗後には自動で再開しない。
-  const selection = period;
+  const selection = period === "custom" ? customPeriod : period;
   const autoLoad = useRef({ selection, started: false });
   const canLoadMore = snapshot.canLoadMore;
   useEffect(() => {
@@ -311,6 +393,7 @@ function ChannelRanking({
               value={period}
               onChange={(next) => {
                 if (state.kind === "loading") cancel();
+                setCustomPeriod(undefined);
                 setPeriod(next);
               }}
             />
@@ -321,6 +404,9 @@ function ChannelRanking({
               loading={state.kind === "loading"}
               onLoad={() => void run(null)}
             />
+          ) : null}
+          {period === "custom" ? (
+            <CustomPeriodForm onApply={setCustomPeriod} />
           ) : null}
         </div>
         {state.kind === "loading" ? (

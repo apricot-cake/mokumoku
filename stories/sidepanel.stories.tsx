@@ -28,7 +28,15 @@ const meta = {
     loadState: { control: false },
     period: {
       control: "select",
-      options: ["all", "week", "month", "quarter", "halfYear", "year"],
+      options: [
+        "all",
+        "week",
+        "month",
+        "quarter",
+        "halfYear",
+        "year",
+        "custom",
+      ],
     },
   },
 } satisfies Meta<PanelScenario>;
@@ -38,6 +46,10 @@ type Story = StoryObj<typeof meta>;
 
 export const Ranking: Story = { name: "動画一覧" };
 
+export const CustomPeriod: Story = {
+  name: "期間指定モック",
+  args: { period: "custom" },
+};
 export const LoadingMore: Story = {
   name: "追加読み込み中",
   args: { loadState: { kind: "loading", mode: "more" } },
