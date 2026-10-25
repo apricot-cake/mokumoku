@@ -233,16 +233,25 @@ function ChannelRanking({
     untilAgeMs !== null &&
     snapshot.videos.some((video) => video.ageMs > untilAgeMs);
 
-  // 期間を選んだら（保存済みの期間で開いたときも）、期間を超える動画まで
-  // 自動で読み込む。一覧が増えるたびに始め直さないよう、期間の変化だけを
-  // 契機にし、読み込み状況は最新の値を参照する。
-  const latest = useRef({ canLoadMore: snapshot.canLoadMore, periodLoaded });
-  latest.current = { canLoadMore: snapshot.canLoadMore, periodLoaded };
+  // 期間を選んだら、その範囲を超えるまで読み込む。続きがまだなければ待つ。
+  // 開始後の一覧更新、中止・失敗後には自動で再開しない。
+  const selection = period;
+  const autoLoad = useRef({ selection, started: false });
+  const canLoadMore = snapshot.canLoadMore;
   useEffect(() => {
-    const maxAgeMs = periodMaxAgeMs(period);
-    const { canLoadMore, periodLoaded } = latest.current;
-    if (maxAgeMs !== null && canLoadMore && !periodLoaded) void run(maxAgeMs);
-  }, [period, run]);
+    if (autoLoad.current.selection !== selection)
+      autoLoad.current = { selection, started: false };
+    const maxAgeMs = untilAgeMs;
+    if (
+      maxAgeMs !== null &&
+      canLoadMore &&
+      !periodLoaded &&
+      !autoLoad.current.started
+    ) {
+      autoLoad.current.started = true;
+      void run(maxAgeMs);
+    }
+  }, [selection, untilAgeMs, run, canLoadMore, periodLoaded]);
 
   return (
     <div className="flex flex-col">
@@ -337,8 +346,12 @@ export function SidepanelApp() {
       />
     );
   }
-  // タブの切り替えで読み込み中の表示を持ち越さないよう、タブごとに作り直す。
+  // ページが変わったら期間と読み込み表示を初期化する。一覧更新では維持する。
   return (
-    <ChannelRanking key={page.tabId} tabId={page.tabId} snapshot={snapshot} />
+    <ChannelRanking
+      key={`${page.tabId}:${page.pageVersion}`}
+      tabId={page.tabId}
+      snapshot={snapshot}
+    />
   );
 }

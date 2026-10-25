@@ -58,6 +58,26 @@ describe("loadMore", () => {
     await vi.advanceTimersByTimeAsync(1200);
     expect(await result).toBe("timeout");
   });
+
+  it("ページ移動で待機を中止し、移動先に古いスクロール位置を適用しない", async () => {
+    grid(3, true);
+    const controller = new AbortController();
+    const result = loadMore(document, 10000, controller.signal);
+    controller.abort();
+    expect(await result).toBe("cancelled");
+    expect(window.scrollTo).not.toHaveBeenCalled();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("中止済みなら継続要素へスクロールしない", async () => {
+    grid(3, true);
+    const controller = new AbortController();
+    controller.abort();
+    expect(await loadMore(document, 10000, controller.signal)).toBe(
+      "cancelled",
+    );
+    expect(Element.prototype.scrollIntoView).not.toHaveBeenCalled();
+  });
 });
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -149,5 +169,15 @@ describe("loadUntil", () => {
     expect(await run(loadUntil(document, 30 * DAY, controller.signal))).toBe(
       "cancelled",
     );
+  });
+
+  it("追加読み込みの途中で中止したら、次の読み込みを始めない", async () => {
+    channel([[1], [2], [3]]);
+    const controller = new AbortController();
+    const result = loadUntil(document, 30 * DAY, controller.signal);
+    controller.abort();
+    expect(await result).toBe("cancelled");
+    expect(Element.prototype.scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(window.scrollTo).not.toHaveBeenCalled();
   });
 });

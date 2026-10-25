@@ -2,7 +2,9 @@
 // content script の読み取りとサイドパネルの描画を確認する。ページには何も書き込まない。
 //
 //   pnpm run smoke [チャンネルの動画タブの URL]
+import type { Page } from "puppeteer-core";
 import type { browser as Browser } from "wxt/browser";
+import { type PeriodId, periodMaxAgeMs } from "../utils/period.ts";
 import { rankVideos } from "../utils/ranking.ts";
 import { isPageSnapshot, SNAPSHOT_REQUEST } from "../utils/snapshot.ts";
 import { loadExtension, withDevBrowser } from "./managed-dev-browser.ts";
@@ -13,6 +15,54 @@ const OTHER_PAGE_URL = "https://www.youtube.com/@YouTube/videos";
 const url = process.argv[2] ?? DEFAULT_URL;
 const CARD =
   "ytd-browse:not([hidden]) ytd-rich-grid-renderer ytd-rich-item-renderer";
+const RANGE_TRIGGER = "header select";
+
+const RANGE_LABELS: Record<PeriodId, readonly string[]> = {
+  all: ["手動", "Manual"],
+  week: ["直近1週間", "Past week"],
+  month: ["直近1か月", "Past month"],
+  quarter: ["直近3か月", "Past 3 months"],
+  halfYear: ["直近6か月", "Past 6 months"],
+  year: ["直近1年", "Past year"],
+};
+
+/** portal 内の項目を待ち、利用者と同じクリック操作で選ぶ。 */
+async function chooseOption(
+  panel: Page,
+  trigger: string,
+  labels: readonly string[],
+): Promise<void> {
+  const value = await panel.$eval(
+    trigger,
+    (element, names) => {
+      const option = [...(element as HTMLSelectElement).options].find((item) =>
+        names.includes(item.textContent?.trim() ?? ""),
+      );
+      if (!option) throw new Error("選択肢がありません。");
+      return option.value;
+    },
+    labels,
+  );
+  await panel.select(trigger, value);
+}
+
+function chooseRange(panel: Page, period: PeriodId): Promise<void> {
+  return chooseOption(panel, RANGE_TRIGGER, RANGE_LABELS[period]);
+}
+
+function waitForRange(panel: Page, period: PeriodId): Promise<unknown> {
+  return panel.waitForFunction(
+    (selector, labels) =>
+      labels.includes(
+        (
+          document.querySelector(selector) as HTMLSelectElement | null
+        )?.selectedOptions[0]?.textContent?.trim() ?? "",
+      ),
+    { timeout: 10000 },
+    RANGE_TRIGGER,
+    RANGE_LABELS[period],
+  );
+}
 
 await withDevBrowser(async (browser) => {
   const extensionId = await loadExtension(browser);
@@ -24,39 +74,49 @@ await withDevBrowser(async (browser) => {
   );
   const worker = await workerTarget.worker();
   if (!worker) throw new Error("拡張機能の service worker に接続できません。");
-  // 前回の確認や手動操作で選んだ読み込み範囲を「手動」に戻し、全件を表示させる。
-  const setPeriod = (period: string) =>
-    worker.evaluate(async (value) => {
-      const api = (globalThis as unknown as { chrome: typeof Browser }).chrome;
-      await api.storage.local.set({ period: value });
-    }, period);
-  await setPeriod("all");
+  const readSnapshot = (tabId?: number) =>
+    worker.evaluate(
+      async ({ tabId: requestedTabId, type }) => {
+        const api = (globalThis as unknown as { chrome: typeof Browser })
+          .chrome;
+        const currentTabId =
+          requestedTabId ??
+          (await api.tabs.query({ active: true, lastFocusedWindow: true }))[0]
+            ?.id;
+        if (currentTabId === undefined) return null;
+        return await api.tabs
+          .sendMessage(currentTabId, { type })
+          .catch(() => null);
+      },
+      { tabId, type: SNAPSHOT_REQUEST },
+    );
+  const waitForReadySnapshot = async (tabId?: number) => {
+    const deadline = Date.now() + 20000;
+    while (Date.now() < deadline) {
+      const current = await readSnapshot(tabId);
+      if (isPageSnapshot(current)) {
+        if (current.kind === "ready") return current;
+        throw new Error(`一覧を読めませんでした: ${current.kind}`);
+      } else if (current !== null) {
+        throw new Error(
+          `content script の応答が不正です: ${JSON.stringify(current)}`,
+        );
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    throw new Error(
+      "動画一覧が読み込み中のまま20秒以内に表示されませんでした。",
+    );
+  };
 
   const page = await browser.newPage();
   try {
     await page.goto(url, { waitUntil: "domcontentloaded" });
     await page.waitForSelector(CARD, { timeout: 20000 });
 
-    // content script の読み直し間隔より長く待ち、描画途中の一覧を読まない。
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    // tabs 権限がないのでタブの URL は読めない。パネルと同じく表示中のタブに問い合わせる。
+    // 確認用のタブをアクティブにして、その content script へ問い合わせる。
     await page.bringToFront();
-    const snapshot = await worker.evaluate(async (type) => {
-      // worker の中では拡張機能 API が chrome として見える。
-      const api = (globalThis as unknown as { chrome: typeof Browser }).chrome;
-      const [tab] = await api.tabs.query({
-        active: true,
-        lastFocusedWindow: true,
-      });
-      if (tab?.id === undefined) return null;
-      return await api.tabs.sendMessage(tab.id, { type });
-    }, SNAPSHOT_REQUEST);
-    if (!isPageSnapshot(snapshot))
-      throw new Error(
-        `content script の応答が不正です: ${JSON.stringify(snapshot)}`,
-      );
-    if (snapshot.kind !== "ready")
-      throw new Error(`一覧を読めませんでした: ${snapshot.kind}`);
+    const snapshot = await waitForReadySnapshot();
     const cards = await page.$$eval(CARD, (elements) => elements.length);
     console.log(
       `[mokumoku] ${snapshot.channel}: カード ${cards} 件のうち ${snapshot.videos.length} 件を読み取った`,
@@ -76,8 +136,10 @@ await withDevBrowser(async (browser) => {
     // ツールバーのアイコンと同じ経路でサイドパネルを開く。
     const root = await browser.target().createCDPSession();
     const panelUrl = `chrome-extension://${extensionId}/sidepanel.html`;
+    const isPanelUrl = (candidate: string) =>
+      candidate === panelUrl || candidate.startsWith(`${panelUrl}?tabId=`);
     const isPanelOpen = () =>
-      browser.targets().some((target) => target.url() === panelUrl);
+      browser.targets().some((target) => isPanelUrl(target.url()));
     const openPanel = async () => {
       // 既定の一覧はタブの target を含まないので、種類を指定して取る。
       const { targetInfos } = await root.send("Target.getTargets", {
@@ -102,7 +164,7 @@ await withDevBrowser(async (browser) => {
         targetId: tab.targetId,
       });
       const target = await browser.waitForTarget(
-        (candidate) => candidate.url() === panelUrl,
+        (candidate) => isPanelUrl(candidate.url()),
         { timeout: 10000 },
       );
       const openedPanel = await target.asPage();
@@ -112,7 +174,9 @@ await withDevBrowser(async (browser) => {
         async (expectedTabId) => {
           const api = (globalThis as unknown as { chrome: typeof Browser })
             .chrome;
-          const { panelOwner } = await api.storage.session.get("panelOwner");
+          const key = `panelOwner:${expectedTabId}`;
+          const stored = await api.storage.session.get(key);
+          const panelOwner = stored[key];
           return (
             expectedTabId !== undefined &&
             typeof panelOwner === "object" &&
@@ -133,14 +197,14 @@ await withDevBrowser(async (browser) => {
           const state = await worker.evaluate(async () => {
             const api = (globalThis as unknown as { chrome: typeof Browser })
               .chrome;
-            const { panelOwner } = await api.storage.session.get("panelOwner");
+            const panelOwners = await api.storage.session.get(null);
             const [tab] = await api.tabs.query({
               active: true,
               lastFocusedWindow: true,
             });
-            if (tab?.id === undefined) return { panelOwner };
+            if (tab?.id === undefined) return { panelOwners };
             return {
-              panelOwner,
+              panelOwners,
               options: await api.sidePanel.getOptions({ tabId: tab.id }),
               channelId: await api.tabs
                 .sendMessage(tab.id, { type: "mokumoku:channel-request" })
@@ -230,7 +294,7 @@ await withDevBrowser(async (browser) => {
     // 読み込み範囲を選ぶだけで、範囲を超える動画まで自動で読み込む。
     if (snapshot.canLoadMore) {
       const scrollBefore = await page.evaluate(() => window.scrollY);
-      await panel.select("header select", "halfYear");
+      await chooseRange(panel, "halfYear");
       // 読み込み済みの動画がすでに範囲を超えていれば、読み込みは始まらない。
       const started = await panel
         .waitForSelector("header progress", { timeout: 3000 })
@@ -256,7 +320,7 @@ await withDevBrowser(async (browser) => {
 
     // 読み込み範囲を絞ると、それより古い動画が一覧から消え、非表示の件数が出る。
     const rankedBefore = await panel.$$eval("ol > li", (rows) => rows.length);
-    await panel.select("header select", "month");
+    await chooseRange(panel, "month");
     await panel.waitForFunction(
       (before) => document.querySelectorAll("ol > li").length < before,
       { timeout: 5000 },
@@ -272,7 +336,64 @@ await withDevBrowser(async (browser) => {
     console.log(
       `[mokumoku] 直近1か月に絞る: ${rankedBefore} 件 → ${filtered.count} 件（${await statusText()}、${filtered.note}）`,
     );
-    await setPeriod("all");
+    // 本物のページ内タブを移り、パネルを閉じずに期間を手動へ戻す。
+    // 一度訪れたページへ戻っても選択済みの期間を復元しない。
+    const originalSection = new URL(page.url()).pathname.endsWith("/streams")
+      ? "streams"
+      : "videos";
+    const otherSection = originalSection === "videos" ? "streams" : "videos";
+    const moveSection = async (section: string) => {
+      try {
+        const clicked = await page.evaluate((destination) => {
+          const labels =
+            destination === "streams" ? ["ライブ", "Live"] : ["動画", "Videos"];
+          const tab = [
+            ...document.querySelectorAll<HTMLElement>(
+              "ytd-browse:not([hidden]) yt-tab-shape",
+            ),
+          ].find((element) =>
+            labels.includes(element.textContent?.trim() ?? ""),
+          );
+          if (!tab) return false;
+          tab.click();
+          return true;
+        }, section);
+        if (!clicked)
+          throw new Error(
+            `動画・ライブ間の移動を確認できません: ${section} タブがありません。両方あるチャンネルを指定して smoke を実行してください。`,
+          );
+        await page.waitForFunction(
+          (destination) => location.pathname.endsWith(`/${destination}`),
+          { timeout: 10000 },
+          section,
+        );
+        await page.waitForSelector(CARD, { timeout: 20000 });
+        await waitForReadySnapshot(
+          Number(new URL(panel.url()).searchParams.get("tabId")),
+        );
+        if (panel.isClosed())
+          throw new Error("動画・ライブ間の移動でパネルが閉じました。");
+        await waitForRange(panel, "all");
+        await panel.waitForFunction(
+          () => document.querySelector("header progress") === null,
+          { timeout: 15000 },
+        );
+        console.log(
+          `[mokumoku] ${section} へ移動: パネルを維持し、読み込み範囲は手動（自動読み込みなし）`,
+        );
+      } finally {
+        // 移動後の状態は直前の検査で確認済み。
+      }
+    };
+    await moveSection(otherSection);
+    await chooseRange(panel, "week");
+    await panel.waitForFunction(
+      () => document.querySelector("header progress") === null,
+      { timeout: 60000 },
+    );
+    await moveSection(originalSection);
+    await moveSection(otherSection);
+    await moveSection(originalSection);
 
     // 同じチャンネル内の移動（「ホーム」タブへ）ではパネルを閉じない。
     const movedInChannel = await page.evaluate(() => {
@@ -300,13 +421,182 @@ await withDevBrowser(async (browser) => {
     await waitPanelClosed("別のページへの移動");
     console.log("[mokumoku] 別のページへの移動: パネルが閉じた");
 
-    // 別のタブに切り替えたら閉じる。
-    await openPanel();
+    // 別のタブではパネルを引き継がず、元のタブへ戻ると同じ内容を表示する。
+    const restoredPanel = await openPanel();
+    await restoredPanel.waitForSelector(RANGE_TRIGGER, { timeout: 10000 });
+    await chooseRange(restoredPanel, "week");
+    const originalPanelUrl = restoredPanel.url();
+    const originalTabId = await worker.evaluate(async () => {
+      const api = (globalThis as unknown as { chrome: typeof Browser }).chrome;
+      const [tab] = await api.tabs.query({
+        active: true,
+        lastFocusedWindow: true,
+      });
+      return tab?.id;
+    });
     const other = await browser.newPage();
     await other.bringToFront();
-    await waitPanelClosed("別のタブへの切り替え");
-    console.log("[mokumoku] 別のタブへの切り替え: パネルが閉じた");
+    // ヘッドレスではサイドパネル自身の visibilityState は visible のまま。
+    // Chrome のタブ別設定、開かれたパネルの対象、読み取り内容を検証する。
+    const independentTab = await worker.evaluate(async () => {
+      const api = (globalThis as unknown as { chrome: typeof Browser }).chrome;
+      const [active] = await api.tabs.query({
+        active: true,
+        lastFocusedWindow: true,
+      });
+      if (active?.id === undefined)
+        throw new Error("切り替え先のタブがありません。");
+      const key = `panelOwner:${active.id}`;
+      return {
+        id: active.id,
+        owner: (await api.storage.session.get(key))[key] ?? null,
+        options: await api.sidePanel.getOptions({ tabId: active.id }),
+        globalOptions: await api.sidePanel.getOptions({}),
+      };
+    });
+    if (
+      independentTab.owner !== null ||
+      independentTab.options.tabId !== independentTab.id ||
+      independentTab.options.path !==
+        `sidepanel.html?tabId=${independentTab.id}` ||
+      independentTab.globalOptions.enabled !== false ||
+      browser
+        .targets()
+        .some(
+          (target) => target.url() === `${panelUrl}?tabId=${independentTab.id}`,
+        )
+    )
+      throw new Error("別のタブへパネルの状態が引き継がれました。");
+    const ownerRetained = await worker.evaluate(async (tabId) => {
+      const api = (globalThis as unknown as { chrome: typeof Browser }).chrome;
+      const key = `panelOwner:${tabId}`;
+      return (await api.storage.session.get(key))[key] !== undefined;
+    }, originalTabId);
+    if (!ownerRetained)
+      throw new Error("タブ切り替えで元のパネルの記録が失われました。");
+    await restoredPanel.waitForSelector("h1", { timeout: 5000 });
+    const originalChannel = await restoredPanel.$eval(
+      "h1",
+      (element) => element.textContent,
+    );
+    await other.goto(url, { waitUntil: "domcontentloaded" });
+    await other.waitForSelector(CARD, { timeout: 20000 });
+    if (
+      (await restoredPanel.$eval("h1", (element) => element.textContent)) !==
+      originalChannel
+    )
+      throw new Error("隠れたパネルが別のタブのチャンネルへ切り替わりました。");
+    await page.bringToFront();
+    if (restoredPanel.isClosed() || restoredPanel.url() !== originalPanelUrl)
+      throw new Error("元のタブに戻ったとき別のパネルが表示されました。");
+    const rangeAfterReturn = await restoredPanel.$eval(
+      RANGE_TRIGGER,
+      (element) =>
+        element
+          .querySelector('[data-slot="select-value"]')
+          ?.textContent?.trim() ?? "",
+    );
+    if (!RANGE_LABELS.week.includes(rangeAfterReturn))
+      throw new Error("タブを往復しただけで選択中の期間が変わりました。");
+    console.log(
+      "[mokumoku] タブ切り替え: 別タブへ状態を引き継がず、元のタブのパネルと内容を維持した",
+    );
     await other.close();
+
+    // 以前の版の保存値が残っていても、新しいパネルは手動で始まる。
+    await page.goto(url, { waitUntil: "domcontentloaded" });
+    await waitPanelClosed("自動読み込み確認前のページ移動");
+    await page.waitForSelector(CARD, { timeout: 20000 });
+    await worker.evaluate(async () => {
+      const api = (globalThis as unknown as { chrome: typeof Browser }).chrome;
+      await api.storage.local.set({ period: "year" });
+    });
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const cardsBeforeRestore = await page.$$eval(
+      CARD,
+      (elements) => elements.length,
+    );
+    const periodPanel = await openPanel();
+    await waitForRange(periodPanel, "all");
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    const cardsAfterOpen = await page.$$eval(
+      CARD,
+      (elements) => elements.length,
+    );
+    if (
+      cardsAfterOpen !== cardsBeforeRestore ||
+      (await periodPanel.$("header progress")) !== null
+    )
+      throw new Error("手動で開いたパネルが自動で追加読み込みを始めました。");
+    const readPeriodSnapshot = () =>
+      readSnapshot(
+        Number(new URL(periodPanel.url()).searchParams.get("tabId")),
+      );
+    const beforeYear = await readPeriodSnapshot();
+    if (!isPageSnapshot(beforeYear) || beforeYear.kind !== "ready")
+      throw new Error("直近1年の指定前に動画一覧を読めませんでした。");
+    const yearAgeMs = periodMaxAgeMs("year");
+    if (yearAgeMs === null) throw new Error("直近1年の期間が未定義です。");
+    const yearAlreadyLoaded = beforeYear.videos.some(
+      (video) => video.ageMs > yearAgeMs,
+    );
+    const needsYearLoad = beforeYear.canLoadMore && !yearAlreadyLoaded;
+    const cardsBeforeYear = await page.$$eval(
+      CARD,
+      (elements) => elements.length,
+    );
+    await chooseRange(periodPanel, "year");
+    if (needsYearLoad) {
+      await page.waitForFunction(
+        (before) =>
+          document.querySelectorAll(
+            "ytd-browse:not([hidden]) ytd-rich-grid-renderer ytd-rich-item-renderer",
+          ).length > before,
+        { timeout: 60000 },
+        cardsBeforeYear,
+      );
+    }
+    await periodPanel.waitForFunction(
+      () =>
+        document.querySelector("header progress") === null &&
+        /範囲内|in range/.test(
+          document.querySelector('header [role="status"]')?.textContent ?? "",
+        ),
+      { timeout: 60000 },
+    );
+    const afterYear = await readPeriodSnapshot();
+    if (
+      !isPageSnapshot(afterYear) ||
+      afterYear.kind !== "ready" ||
+      (afterYear.canLoadMore &&
+        !afterYear.videos.some((video) => video.ageMs > yearAgeMs))
+    )
+      throw new Error(
+        "直近1年を選んでも、年境界または一覧の末尾に届いていません。",
+      );
+    console.log(
+      needsYearLoad
+        ? "[mokumoku] 新しいパネルは手動で開始し、直近1年を選ぶと期間まで追加読み込みした"
+        : `[mokumoku] 新しいパネルは手動で開始し、直近1年の指定は${yearAlreadyLoaded ? "年境界まで読み込み済み" : "一覧の末尾まで読み込み済み"}のため追加読み込みせずに表示した`,
+    );
+    await worker.evaluate(
+      async (tabId) => {
+        const api = (globalThis as unknown as { chrome: typeof Browser })
+          .chrome;
+        await api.sidePanel.close({ tabId });
+      },
+      Number(new URL(periodPanel.url()).searchParams.get("tabId")),
+    );
+    await waitPanelClosed("パネルを閉じて開き直す確認");
+    const reopened = await openPanel();
+    await waitForRange(reopened, "all");
+    console.log(
+      "[mokumoku] パネルを閉じて開き直す: 読み込み範囲は手動に戻った",
+    );
+    await worker.evaluate(async () => {
+      const api = (globalThis as unknown as { chrome: typeof Browser }).chrome;
+      await api.storage.local.remove("period");
+    });
   } finally {
     await page.close();
   }

@@ -37,6 +37,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Ranking: Story = { name: "動画一覧" };
+
 export const LoadingMore: Story = {
   name: "追加読み込み中",
   args: { loadState: { kind: "loading", mode: "more" } },
@@ -86,13 +87,19 @@ export const NotNewest: Story = {
   args: {
     page: {
       tabId: 1,
+      pageVersion: 0,
       snapshot: { kind: "not-newest", channel: "暮らしと道具の記録" },
     },
   },
 };
 export const Unsupported: Story = {
   name: "対象ページ外",
-  args: { page: { tabId: 1, snapshot: { kind: "unsupported" } } },
+  args: {
+    page: {
+      ...readyPage,
+      snapshot: { kind: "unsupported" },
+    },
+  },
 };
 export const Disconnected: Story = {
   name: "ページとの接続なし",

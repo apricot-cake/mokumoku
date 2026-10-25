@@ -8,6 +8,11 @@ export const CHANNEL_REQUEST = "mokumoku:channel-request";
 /** content script が、表示中のチャンネルが変わったときに送るメッセージ。 */
 export const CHANNEL_UPDATE = "mokumoku:channel";
 
+/** タブごとに保存し、別タブの更新と競合させない。 */
+export function panelOwnerKey(tabId: number): string {
+  return `panelOwner:${tabId}`;
+}
+
 export interface ChannelUpdate {
   readonly type: typeof CHANNEL_UPDATE;
   readonly channelId: string | null;

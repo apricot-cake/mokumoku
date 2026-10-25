@@ -6,8 +6,17 @@ export const LOAD_MORE_TIMEOUT_MS = 10000;
 /** 期間まで続けて読み込むとき、1回の操作で増やす動画数の上限。 */
 export const LOAD_UNTIL_MAX_VIDEOS = 500;
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) return Promise.resolve();
+  return new Promise((resolve) => {
+    const finish = () => {
+      clearTimeout(timer);
+      signal?.removeEventListener("abort", finish);
+      resolve();
+    };
+    const timer = setTimeout(finish, ms);
+    signal?.addEventListener("abort", finish, { once: true });
+  });
 }
 
 /**
@@ -18,7 +27,9 @@ function sleep(ms: number): Promise<void> {
 export async function loadMore(
   doc: Document,
   timeoutMs = LOAD_MORE_TIMEOUT_MS,
+  signal?: AbortSignal,
 ): Promise<LoadMoreResult> {
+  if (signal?.aborted) return "cancelled";
   const continuation = doc.querySelector(CONTINUATION);
   if (continuation === null) return "end";
   const view = doc.defaultView;
@@ -28,7 +39,9 @@ export async function loadMore(
   const deadline = Date.now() + timeoutMs;
   let result: LoadMoreResult = "timeout";
   while (Date.now() < deadline) {
-    await sleep(POLL_MS);
+    await sleep(POLL_MS, signal);
+    // ページ移動で中止されたときは、移動先へ古いスクロール位置を適用しない。
+    if (signal?.aborted) return "cancelled";
     if (doc.querySelectorAll(CARD).length > before) {
       result = "loaded";
       break;
@@ -69,7 +82,7 @@ export async function loadUntil(
     if (signal.aborted) return "cancelled";
     if (oldestLoadedAgeMs(doc) > maxAgeMs) return "reached";
     if (doc.querySelectorAll(CARD).length - start >= maxVideos) return "limit";
-    const result = await loadMore(doc, timeoutMs);
+    const result = await loadMore(doc, timeoutMs, signal);
     if (result !== "loaded") return result;
   }
 }

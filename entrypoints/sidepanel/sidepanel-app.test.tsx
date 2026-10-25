@@ -50,8 +50,6 @@ async function render(
   await act(async () => {
     root.render(<SidepanelApp />);
   });
-  // 保存済みの読み込み範囲の読み出しを待つ。
-  await act(async () => {});
   return send;
 }
 
@@ -65,6 +63,58 @@ function button(label: string): HTMLButtonElement {
 
 function status(): string {
   return container.querySelector('header [role="status"]')?.textContent ?? "";
+}
+
+const RANGE_LABELS: Record<string, string> = {
+  all: "Manual",
+  week: "Past week",
+  month: "Past month",
+  quarter: "Past 3 months",
+  halfYear: "Past 6 months",
+  year: "Past year",
+  custom: "Custom range…",
+};
+
+function combobox(label: string, scope: ParentNode = container): HTMLElement {
+  const element = scope.querySelector<HTMLSelectElement>(
+    label === "Load range" ? "select" : 'select[aria-label="Unit"]',
+  );
+  if (!element) throw new Error("選択欄がありません。");
+  return element;
+}
+
+async function chooseOption(
+  trigger: HTMLElement,
+  label: string,
+): Promise<void> {
+  const select = trigger as HTMLSelectElement;
+  const option = [...select.options].find(
+    (item) => item.textContent?.trim() === label,
+  );
+  if (!option) throw new Error("選択肢がありません。");
+  await act(async () => {
+    select.value = option.value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+}
+
+async function chooseRange(
+  period: string,
+  scope: ParentNode = container,
+): Promise<void> {
+  const label = RANGE_LABELS[period];
+  if (!label) throw new Error(`未知の読み込み範囲: ${period}`);
+  await chooseOption(combobox("Load range", scope), label);
+}
+
+function expectRange(period: string, scope: ParentNode = container): void {
+  expect(selectedText(combobox("Load range", scope))).toBe(
+    RANGE_LABELS[period],
+  );
+}
+
+function selectedText(trigger: HTMLElement): string | undefined {
+  return (trigger as HTMLSelectElement).selectedOptions[0]?.textContent?.trim();
 }
 
 beforeEach(() => {
@@ -87,13 +137,11 @@ describe("SidepanelApp", () => {
     );
     expect(container.textContent).toContain("reload the page");
   });
-
   it("新しい順でなければ切り替えを促す", async () => {
     const snapshot: PageSnapshot = { kind: "not-newest", channel: "c" };
     await render(snapshot);
     expect(container.textContent).toContain("Sort the videos by Latest");
   });
-
   it("倍率順の一覧と、公開1日未満の欄を出す", async () => {
     const typical = [1, 2, 4, 7, 14, 30, 60, 90, 180, 365].map((days) =>
       video(`d${days}`, Math.round(10000 * Math.sqrt(days)), days),
@@ -121,8 +169,7 @@ describe("SidepanelApp", () => {
     expect(fresh?.textContent).toContain("Less than a day old");
     expect(fresh?.textContent).toContain("動画 fresh");
   });
-
-  it("手動のときは、ヘッダーのボタンで1回分を読み込む", async () => {
+  it("期間指定なしのときは、ヘッダーのボタンで1回分を読み込む", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
       channel: "Example",
@@ -139,8 +186,7 @@ describe("SidepanelApp", () => {
     expect(send).toHaveBeenCalledWith(1, { type: "mokumoku:load-more" });
     expect(status()).toBe("Couldn't load more videos. Try again.");
   });
-
-  it("期間を選ぶと、それより古い動画を一覧から隠して保存する", async () => {
+  it("期間を選ぶと、それより古い動画を一覧から隠し、永続保存しない", async () => {
     const typical = [1, 2, 4, 7, 14, 30, 60, 90, 180, 365].map((days) =>
       video(`d${days}`, Math.round(10000 * Math.sqrt(days)), days),
     );
@@ -152,38 +198,205 @@ describe("SidepanelApp", () => {
       videos: typical,
     };
     await render(snapshot);
-    const select = container.querySelector("select") as HTMLSelectElement;
-    await act(async () => {
-      select.value = "month";
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-    });
+    await chooseRange("month");
     const ranked = [...container.querySelectorAll("ol > li")].map(
       (row) => row.textContent ?? "",
     );
     expect(ranked).toHaveLength(6);
     expect(ranked.some((row) => row.includes("動画 d60"))).toBe(false);
     expect(container.textContent).toContain("4 older videos are hidden");
-    expect(await fakeBrowser.storage.local.get("period")).toEqual({
-      period: "month",
-    });
+    expect(await fakeBrowser.storage.local.get("period")).toEqual({});
   });
-
-  it("保存した期間で開く", async () => {
+  it("旧版で保存した期間は使わず、期間指定なしから開く", async () => {
     await fakeBrowser.storage.local.set({ period: "week" });
     const snapshot: PageSnapshot = {
       kind: "ready",
       channel: "Example",
-      canLoadMore: false,
+      canLoadMore: true,
       empty: false,
-      videos: [1, 2, 4, 7, 14, 30, 60, 90, 180, 365].map((days) =>
-        video(`d${days}`, Math.round(10000 * Math.sqrt(days)), days),
-      ),
+      videos: [video("a", 100, 2)],
     };
-    await render(snapshot);
-    expect(container.querySelector("select")?.value).toBe("week");
-    expect(container.querySelectorAll("ol > li")).toHaveLength(4);
+    const send = await render(snapshot);
+    expectRange("all");
+    expect(send).not.toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ type: "mokumoku:load-more" }),
+    );
   });
-
+  it("期間を選んでから閉じて開き直すと、期間指定なしに戻り自動読み込みを始めない", async () => {
+    const snapshot: PageSnapshot = {
+      kind: "ready",
+      channel: "Example",
+      canLoadMore: true,
+      empty: false,
+      videos: [video("a", 100, 2)],
+    };
+    const send = await render(snapshot, () => Promise.resolve("timeout"));
+    await chooseRange("month");
+    expect(send).toHaveBeenCalledWith(1, {
+      type: "mokumoku:load-more",
+      untilAgeMs: 30.4375 * DAY,
+    });
+    await act(async () => root.render(null));
+    send.mockClear();
+    await act(async () => root.render(<SidepanelApp />));
+    expectRange("all");
+    expect(send).not.toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ type: "mokumoku:load-more" }),
+    );
+  });
+  it("一覧更新と別タブでは期間を保ち、動画とライブを往復すると期間指定なしに戻す", async () => {
+    const snapshot: PageSnapshot = {
+      kind: "ready",
+      channel: "Example",
+      canLoadMore: true,
+      empty: false,
+      videos: [video("a", 100, 2)],
+    };
+    let pageUrl = "https://www.youtube.com/@example/videos";
+    vi.spyOn(fakeBrowser.tabs, "get").mockImplementation((() =>
+      Promise.resolve({
+        id: 1,
+        url: pageUrl,
+      } as Browser.tabs.Tab)) as typeof fakeBrowser.tabs.get);
+    let finishLoad: (value: string) => void = () => {};
+    const pendingLoad = new Promise<string>((resolve) => {
+      finishLoad = resolve;
+    });
+    const send = await render(snapshot, (message) =>
+      message.type === "mokumoku:load-more"
+        ? pendingLoad
+        : Promise.resolve(undefined),
+    );
+    await chooseRange("month");
+    expect(container.querySelector("header progress")).not.toBeNull();
+    await act(async () => {
+      await fakeBrowser.runtime.onMessage.trigger(
+        { type: "mokumoku:snapshot", snapshot },
+        { tab: { id: 1 } as Browser.tabs.Tab },
+        vi.fn(),
+      );
+      await fakeBrowser.tabs.onUpdated.trigger(1, { url: pageUrl }, {
+        id: 1,
+        url: pageUrl,
+      } as Browser.tabs.Tab);
+      await fakeBrowser.tabs.onUpdated.trigger(1, { status: "complete" }, {
+        id: 1,
+        url: pageUrl,
+      } as Browser.tabs.Tab);
+      await fakeBrowser.tabs.onUpdated.trigger(
+        2,
+        { url: "https://www.youtube.com/@other/streams" },
+        { id: 2 } as Browser.tabs.Tab,
+      );
+    });
+    expectRange("month");
+    pageUrl = "https://www.youtube.com/@example/streams";
+    await act(async () => {
+      await fakeBrowser.tabs.onUpdated.trigger(1, { url: pageUrl }, {
+        id: 1,
+        url: pageUrl,
+      } as Browser.tabs.Tab);
+    });
+    expectRange("all");
+    expect(container.querySelector("header progress")).toBeNull();
+    expect(send).toHaveBeenCalledWith(1, { type: "mokumoku:load-cancel" });
+    await act(async () => {
+      finishLoad("cancelled");
+      await fakeBrowser.runtime.onMessage.trigger(
+        { type: "mokumoku:snapshot", snapshot },
+        { tab: { id: 1 } as Browser.tabs.Tab },
+        vi.fn(),
+      );
+    });
+    expectRange("all");
+    expect(container.querySelector("header progress")).toBeNull();
+    const loadRequests = () =>
+      send.mock.calls.filter(
+        (call: unknown[]) =>
+          (call[1] as { type: string }).type === "mokumoku:load-more",
+      );
+    expect(loadRequests()).toHaveLength(1);
+    await chooseRange("week");
+    expect(loadRequests()).toHaveLength(2);
+    for (const section of ["videos", "streams"]) {
+      pageUrl = `https://www.youtube.com/@example/${section}`;
+      await act(async () => {
+        await fakeBrowser.tabs.onUpdated.trigger(1, { url: pageUrl }, {
+          id: 1,
+          url: pageUrl,
+        } as Browser.tabs.Tab);
+        await fakeBrowser.runtime.onMessage.trigger(
+          { type: "mokumoku:snapshot", snapshot },
+          { tab: { id: 1 } as Browser.tabs.Tab },
+          vi.fn(),
+        );
+      });
+      expectRange("all");
+      expect(container.querySelector("header progress")).toBeNull();
+      expect(loadRequests()).toHaveLength(2);
+    }
+  });
+  it.each(["month", "all"])(
+    "選択範囲 %s の後に一覧の続きが現れた場合も、自動読み込みの条件を守る",
+    async (period) => {
+      const snapshot: PageSnapshot = {
+        kind: "ready",
+        channel: "Example",
+        canLoadMore: false,
+        empty: false,
+        videos: [],
+      };
+      const send = await render(snapshot, () => Promise.resolve("timeout"));
+      await chooseRange(period);
+      expectRange(period);
+      const loadRequests = () =>
+        send.mock.calls.filter(
+          (call: unknown[]) =>
+            (call[1] as { type: string }).type === "mokumoku:load-more",
+        );
+      expect(loadRequests()).toHaveLength(0);
+      const update = {
+        ...snapshot,
+        canLoadMore: true,
+        videos: [video("a", 100, 2)],
+      };
+      await act(async () => {
+        await fakeBrowser.runtime.onMessage.trigger(
+          { type: "mokumoku:snapshot", snapshot: update },
+          { tab: { id: 1 } as Browser.tabs.Tab },
+          vi.fn(),
+        );
+      });
+      expect(loadRequests()).toHaveLength(period === "month" ? 1 : 0);
+      // 読み込み失敗後に継続要素が入れ替わっても、勝手に再開しない。
+      await act(async () => {
+        await fakeBrowser.runtime.onMessage.trigger(
+          {
+            type: "mokumoku:snapshot",
+            snapshot: { ...update, canLoadMore: false },
+          },
+          { tab: { id: 1 } as Browser.tabs.Tab },
+          vi.fn(),
+        );
+      });
+      await act(async () => {
+        await fakeBrowser.runtime.onMessage.trigger(
+          {
+            type: "mokumoku:snapshot",
+            snapshot: {
+              ...update,
+              videos: [...update.videos, video("b", 200, 3)],
+            },
+          },
+          { tab: { id: 1 } as Browser.tabs.Tab },
+          vi.fn(),
+        );
+      });
+      expect(loadRequests()).toHaveLength(period === "month" ? 1 : 0);
+    },
+  );
   it("期間を選ぶと、期間を超える動画まで自動で読み込み、中止と再開ができる", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
@@ -206,11 +419,7 @@ describe("SidepanelApp", () => {
         type: "mokumoku:load-more",
       }),
     );
-    const select = container.querySelector("select") as HTMLSelectElement;
-    await act(async () => {
-      select.value = "month";
-      select.dispatchEvent(new Event("change", { bubbles: true }));
-    });
+    await chooseRange("month");
     expect(send).toHaveBeenCalledWith(1, {
       type: "mokumoku:load-more",
       untilAgeMs: 30.4375 * DAY,
@@ -226,6 +435,24 @@ describe("SidepanelApp", () => {
     });
     expect(status()).toBe("Loading canceled");
     expect(container.querySelector("header progress")).toBeNull();
+    for (const canLoadMore of [false, true]) {
+      await act(async () => {
+        await fakeBrowser.runtime.onMessage.trigger(
+          {
+            type: "mokumoku:snapshot",
+            snapshot: { ...snapshot, canLoadMore },
+          },
+          { tab: { id: 1 } as Browser.tabs.Tab },
+          vi.fn(),
+        );
+      });
+    }
+    expect(
+      send.mock.calls.filter(
+        (call: unknown[]) =>
+          (call[1] as { type: string }).type === "mokumoku:load-more",
+      ),
+    ).toHaveLength(1);
     await act(async () => {
       button("Load the rest").click();
     });
@@ -234,9 +461,7 @@ describe("SidepanelApp", () => {
     });
     expect(status()).toBe("Stopped after loading 500 videos");
   });
-
   it("期間を超える動画まで読み込み済みなら、読み込まずに件数を示す", async () => {
-    await fakeBrowser.storage.local.set({ period: "week" });
     const snapshot: PageSnapshot = {
       kind: "ready",
       channel: "Example",
@@ -247,6 +472,7 @@ describe("SidepanelApp", () => {
       ),
     };
     const send = await render(snapshot);
+    await chooseRange("week");
     expect(send).not.toHaveBeenCalledWith(
       1,
       expect.objectContaining({
@@ -254,9 +480,10 @@ describe("SidepanelApp", () => {
       }),
     );
     expect(status()).toBe("4 videos in range");
-    expect(container.querySelectorAll("header button")).toHaveLength(0);
+    expect(
+      container.querySelectorAll('header button:not([role="combobox"])'),
+    ).toHaveLength(0);
   });
-
   it("最後まで読み込んだらボタンを無効にする", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
@@ -268,7 +495,6 @@ describe("SidepanelApp", () => {
     await render(snapshot);
     expect(button("All loaded").disabled).toBe(true);
   });
-
   it("基準を出せないときは読み込みを促す", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",

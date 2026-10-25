@@ -25,6 +25,7 @@ export const moreVideos = [90, 120, 180, 210, 270, 365, 400, 500].map(
 
 export const readyPage: PageState = {
   tabId: 1,
+  pageVersion: 0,
   snapshot: {
     kind: "ready",
     channel: "暮らしと道具の記録",

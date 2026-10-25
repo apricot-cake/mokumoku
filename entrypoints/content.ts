@@ -69,6 +69,10 @@ export default defineContentScript({
       attributeFilter: ["aria-selected", "selected", "hidden"],
     });
     ctx.onInvalidated(() => observer.disconnect());
+    // 移動元の追加読み込みを、移動先の一覧へ続けない。
+    ctx.addEventListener(document, "yt-navigate-start", () => {
+      cancelLoading?.abort();
+    });
     // SPA の遷移完了。DOM の差し替えより先に URL が変わるので、遷移後にも読み直す。
     ctx.addEventListener(document, "yt-navigate-finish", scheduleRefresh);
 
@@ -79,7 +83,7 @@ export default defineContentScript({
           cancelLoading = controller;
           loading = (
             message.untilAgeMs === undefined
-              ? loadMore(document)
+              ? loadMore(document, undefined, controller.signal)
               : loadUntil(document, message.untilAgeMs, controller.signal)
           ).finally(() => {
             loading = null;

@@ -89,7 +89,7 @@ export default defineConfig({
         }
       : {}),
     description: "__MSG_extensionDescription__",
-    // パネルで選んだ読み込み範囲を保存する。
+    // タブごとのパネル情報をセッション中だけ保持する。
     permissions: [
       "storage",
       // ローカル配備ビルドは、読み込み直したあとに開いているタブへ

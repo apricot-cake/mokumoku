@@ -14,17 +14,37 @@ import {
   isChannelUpdate,
   isPanelOwner,
   type PanelOwner,
+  panelOwnerKey,
   panelPageKey,
 } from "../utils/panel-page.ts";
 
-// パネルを開いているタブ。service worker は休止するので session storage に置く。
-const OWNER_KEY = "panelOwner";
+// service worker の休止後も、各タブのパネルを独立して管理する。
 const PANEL_PATH = "sidepanel.html";
 
-async function readOwner(): Promise<PanelOwner | null> {
-  const stored = await browser.storage.session.get(OWNER_KEY);
-  const owner = stored[OWNER_KEY];
+async function readOwner(tabId: number): Promise<PanelOwner | null> {
+  const key = panelOwnerKey(tabId);
+  const stored = await browser.storage.session.get(key);
+  const owner = stored[key];
   return isPanelOwner(owner) ? owner : null;
+}
+
+function prepareTab(tabId: number): Promise<void> {
+  return browser.sidePanel.setOptions({
+    tabId,
+    path: `${PANEL_PATH}?tabId=${tabId}`,
+    enabled: true,
+  });
+}
+
+function isPanelUrl(value: string | undefined): boolean {
+  if (value === undefined) return false;
+  const base = browser.runtime.getURL(`/${PANEL_PATH}`);
+  if (value === base) return true;
+  if (!value.startsWith(`${base}?tabId=`)) return false;
+  const parameter = value.slice(`${base}?tabId=`.length);
+  return (
+    /^(0|[1-9]\d*)$/.test(parameter) && Number.isSafeInteger(Number(parameter))
+  );
 }
 
 /** タブの content script が読んだチャンネル ID。応答がなければ null。 */
@@ -42,7 +62,7 @@ async function closePanel(owner: PanelOwner): Promise<void> {
         ? { windowId: owner.windowId }
         : { tabId: owner.panelTabId },
     );
-    await browser.storage.session.remove(OWNER_KEY);
+    await browser.storage.session.remove(panelOwnerKey(owner.tabId));
   } catch (error) {
     console.warn("mokumoku のパネルを閉じられませんでした。", error);
   }
@@ -58,29 +78,42 @@ export default defineBackground(() => {
   if (import.meta.env.COMMAND === "serve" || __MOKUMOKU_LOCAL_DEPLOY__)
     void injectContentScriptIntoOpenTabs();
 
-  // 開閉は Chrome 標準のアイコン動作に任せる。onClicked は Chrome が直接
-  // パネルを開く経路では発火しないので、所有者は実際の onOpened で記録する。
+  // Chrome がタブ別パネルを自動的に隠し、元のタブで復元する。
   void browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+  void (async () => {
+    // 以前の版で保存していた読み込み範囲は、今後のパネルでは使わない。
+    await browser.storage.local.remove("period");
+    const stored = await browser.storage.session.get("panelOwner");
+    if (isPanelOwner(stored.panelOwner)) await closePanel(stored.panelOwner);
+    await browser.storage.session.remove("panelOwner");
+    await browser.sidePanel.setOptions({ enabled: false });
+    const tabs = await browser.tabs.query({});
+    await Promise.all(
+      tabs.map((tab) =>
+        tab.id === undefined ? undefined : prepareTab(tab.id),
+      ),
+    );
+  })().catch(console.error);
+  browser.tabs.onCreated.addListener((tab) => {
+    if (tab.id !== undefined) void prepareTab(tab.id).catch(console.error);
+  });
 
   browser.sidePanel.onOpened.addListener(({ windowId, tabId: panelTabId }) => {
     void (async () => {
-      const [tab] = await browser.tabs.query({ active: true, windowId });
-      if (tab?.id === undefined) return;
-      const tabId = tab.id;
-      const previous = await readOwner();
-      if (previous && previous.windowId !== windowId)
-        await closePanel(previous);
+      if (panelTabId === undefined) return;
+      const tab = await browser.tabs.get(panelTabId);
+      const tabId = panelTabId;
       const owner: PanelOwner = {
         tabId,
         windowId,
-        panelTabId: panelTabId ?? null,
+        panelTabId,
         pageKey: panelPageKey(tab.url),
         channelId: null,
       };
       // チャンネルの応答より先に所有者を保存し、その間の移動でも閉じられるようにする。
-      await browser.storage.session.set({ [OWNER_KEY]: owner });
+      await browser.storage.session.set({ [panelOwnerKey(tabId)]: owner });
       const channelId = await readTabChannelId(tabId);
-      const current = await readOwner();
+      const current = await readOwner(tabId);
       // 問い合わせ中にパネルが閉じた場合、古い所有者を書き戻さない。
       if (
         current?.tabId === tabId &&
@@ -89,7 +122,7 @@ export default defineBackground(() => {
         current.panelTabId === owner.panelTabId
       ) {
         await browser.storage.session.set({
-          [OWNER_KEY]: { ...current, channelId },
+          [panelOwnerKey(tabId)]: { ...current, channelId },
         });
       }
       // ローカル配備ビルドは、Chrome が直接開く経路でも更新を確認する。
@@ -108,7 +141,7 @@ export default defineBackground(() => {
     if (
       (message as { type?: unknown })?.type !== CHECK_LOCAL_BUILD ||
       sender.tab !== undefined ||
-      sender.url !== browser.runtime.getURL(`/${PANEL_PATH}`)
+      !isPanelUrl(sender.url)
     )
       return;
     return __MOKUMOKU_LOCAL_DEPLOY__
@@ -116,18 +149,11 @@ export default defineBackground(() => {
       : Promise.resolve(true);
   });
 
-  // 同じウィンドウで別のタブに切り替えたら閉じる。
-  browser.tabs.onActivated.addListener(({ tabId, windowId }) => {
-    void readOwner().then((owner) => {
-      if (owner && owner.windowId === windowId && owner.tabId !== tabId)
-        return closePanel(owner);
-    });
-  });
-
   // パネルを開いたページから別のページへ移ったら閉じる。
   browser.tabs.onUpdated.addListener((tabId, change, tab) => {
+    void prepareTab(tabId).catch(console.error);
     if (change.url === undefined && change.status !== "loading") return;
-    void readOwner().then((owner) => {
+    void readOwner(tabId).then((owner) => {
       if (
         owner?.tabId === tabId &&
         hasLeftPanelPage(owner, {
@@ -144,7 +170,8 @@ export default defineBackground(() => {
   browser.runtime.onMessage.addListener((message, sender) => {
     if (!isChannelUpdate(message)) return;
     const tabId = sender.tab?.id;
-    void readOwner().then((owner) => {
+    if (tabId === undefined) return;
+    void readOwner(tabId).then((owner) => {
       if (
         owner !== null &&
         owner.tabId === tabId &&
@@ -155,17 +182,15 @@ export default defineBackground(() => {
   });
 
   browser.tabs.onRemoved.addListener((tabId) => {
-    void readOwner().then((owner) => {
-      if (owner?.tabId === tabId)
-        return browser.storage.session.remove(OWNER_KEY);
-    });
+    void browser.storage.session.remove(panelOwnerKey(tabId));
   });
 
-  // パネルを閉じるボタンで閉じたときも、所有タブの記録を消す。
+  // 手動で閉じたタブの記録だけを消す。
   browser.sidePanel.onClosed.addListener(({ tabId, windowId }) => {
-    void readOwner().then((owner) => {
-      if (owner?.windowId === windowId && owner.panelTabId === (tabId ?? null))
-        return browser.storage.session.remove(OWNER_KEY);
+    if (tabId === undefined) return;
+    void readOwner(tabId).then((owner) => {
+      if (owner?.windowId === windowId && owner.panelTabId === tabId)
+        return browser.storage.session.remove(panelOwnerKey(tabId));
     });
   });
 });
