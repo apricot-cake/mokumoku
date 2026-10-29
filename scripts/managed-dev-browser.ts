@@ -155,15 +155,3 @@ export function keepExtensionEnabled(
     clearTimeout(timer);
   };
 }
-
-/** 各コマンドが所有する Chrome は、正常終了・失敗のどちらでも終了する。 */
-export async function withDevBrowser<T>(
-  run: (browser: Browser) => Promise<T>,
-): Promise<T> {
-  const browser = await launchDevBrowser(true);
-  try {
-    return await run(browser);
-  } finally {
-    await browser.close();
-  }
-}

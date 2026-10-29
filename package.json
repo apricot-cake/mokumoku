@@ -14,7 +14,6 @@
     "browser:open": "node scripts/dev-browser.ts",
     "browser:dev": "node scripts/dev-browser.ts --dev",
     "browser:status": "node scripts/dev-browser.ts --print",
-    "smoke": "node scripts/smoke.ts",
     "lint": "pnpm run lint:code && pnpm run lint:markdown && pnpm run lint:typos",
     "lint:code": "biome ci .",
     "lint:markdown": "markdownlint-cli2",
@@ -23,11 +22,12 @@
     "lint:fix": "biome check --write .",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
+    "test:e2e": "vitest run --config vitest.e2e.config.ts",
+    "test:live": "vitest run --config vitest.live.config.ts",
     "check": "pnpm run lint && pnpm run typecheck && pnpm run test",
     "postinstall": "node scripts/bootstrap-i18n-types.ts && wxt prepare",
     "storybook": "msw init .storybook/public --no-save && storybook dev -p 6010 --host 127.0.0.1 --no-open",
-    "build-storybook": "msw init .storybook/public --no-save && storybook build",
-    "test:e2e": "vitest run --config vitest.e2e.config.ts"
+    "build-storybook": "msw init .storybook/public --no-save && storybook build"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",

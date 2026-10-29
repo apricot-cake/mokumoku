@@ -61,19 +61,36 @@ pnpm run test:e2e
 
 Vitest の Node.js 環境から Puppeteer でヘッドレスの Chrome を pipe 接続で起動します。ケースごとに OS の一時フォルダー内へ専用プロファイルを作り、ビルド済みの拡張機能を読み込みます。ツールバー操作と同じ経路で実際のサイドパネルを開き、期間の選択、任意期間の入力、タブの切り替え、ページ遷移などを確認します。
 
-YouTube の応答には固定の HTML を使い、YouTube へのネットワークアクセスは行いません。この E2E は実サイトの確認とは別です。YouTube との連携に影響する変更やリリース前には、必要に応じて次の `pnpm run smoke` を実行してください。
+YouTube の応答には固定の HTML を使い、YouTube へのネットワークアクセスは行いません。この E2E は実サイトの確認とは別です。YouTube との連携に影響する変更やリリース前には、必要に応じて次の `pnpm run test:live` を実行してください。
 
 失敗時の PNG、HTML、診断 JSON は `.output/e2e-results/` に保存します。Vitest の結果は同フォルダーの `result.json` で確認できます。
 
 ### 実際の YouTube ページを確認する
 
-自動確認には `pnpm run smoke` を使います。先に `pnpm run build` を実行し、手動確認用の Chrome を閉じてください。ウィンドウを表示しないヘッドレスモードで、動画情報の読み取りとサイドパネルの表示を確認します。
+`pnpm run test:live` は、実際の YouTube を使う Vitest のテストです。通常の UI 調整は `check`・`build`・`test:e2e` で確認し、YouTube との連携に影響する変更やリリース前に必要に応じて実行します。先に `pnpm run build` を実行してください。`vitest.live.config.ts` から `e2e/**/*.live.ts` を実行し、動画情報の読み取り、サイドパネルの表示、期間選択やページ遷移などを独立したケースで確認します。
 
 ```powershell
-pnpm run smoke
+pnpm run test:live
 ```
 
-別のチャンネルを使う場合は、`pnpm run smoke <動画またはライブタブのURL>` と指定します。
+Vitest の Node.js 環境と Puppeteer を使い、ヘッドレスの Chrome へ pipe 接続します。スイート全体でログインなしの一時プロファイル、Chrome、YouTube ページを各1つ共有します。プロファイルは OS の一時フォルダーに作り、ケースの前後はパネルの開閉だけで初期化します。YouTube の実 DOM は追加・改変しません。
+
+確認先は `MOKUMOKU_LIVE_URL` で指定でき、既定は `https://www.youtube.com/@GoogleJapan/videos` です。PowerShell で別のチャンネルを指定する例です。
+
+```powershell
+$env:MOKUMOKU_LIVE_URL = "https://www.youtube.com/@YouTube/videos"
+pnpm run test:live
+```
+
+#### 実サイトへの負荷を抑える
+
+最初のページ取得と最後の別チャンネルへの移動を各1回に抑えます。同じチャンネルの「動画」と「ライブ」は1往復し、別タブへの切り替えには `about:blank` を使います。期間フィルタは既に読み込まれた動画だけで照合し、期間境界に届く動画が足りなければ、その期間は適用せず未実施の注記を残します。動画の追加取得（continuation）は行いません。自動追加読み込みや遷移中の瞬間的な表示は、固定データの `test:e2e` で確認します。
+
+画像・フォント・動画や player・log_event への要求を抑制します。初回パネルの要求は通信制御より先に始まる場合があるため、完全に遮断するものではありません。取得を抑制するこのテストは、見た目の検証には使いません。
+
+ページ取得は3回、一覧 API は8回を上限とし、ページと一覧 API の要求を2秒以上空けます。並列実行と再試行は行いません。`www.youtube.com` が HTTP 403・429・503 を返した場合や CAPTCHA を検出した場合は停止します。この回数と間隔はテストの運用上限で、公式の安全閾値やアクセス制限を受けない保証ではありません。
+
+通常 CI のブラウザテストは固定 HTML の `test:e2e` とし、実サイトへ通信する `test:live` は含めません。失敗時の PNG、HTML、診断 JSON は `.output/live-results/`、Vitest の結果は同フォルダーの `result.json` に保存します。成否を問わず `network.json` に通信数と抑制数、停止対象の応答と `Retry-After` を記録します。
 
 ## Storybook で画面を確認する
 
@@ -83,7 +100,7 @@ pnpm storybook
 
 起動後に [Storybook](http://127.0.0.1:6010/) をブラウザで開くと、状態ごとの画面を確認できます。左側で動画一覧、読み込み中、動画なしなどを選び、上部で日本語・英語とパネル幅を切り替えます。
 
-動画と読み込み結果には、固定のサンプルを使っています。期間の選択や追加読み込みも試せますが、実際の YouTube や拡張機能との連携は、開発用 Chrome と `pnpm run smoke` で確認してください。
+動画と読み込み結果には、固定のサンプルを使っています。期間の選択や追加読み込みも試せますが、実際の YouTube や拡張機能との連携は、開発用 Chrome と `pnpm run test:live` で確認してください。
 
 `pnpm run build-storybook` で `storybook-static/` に静的ビルドを出力できます。
 
