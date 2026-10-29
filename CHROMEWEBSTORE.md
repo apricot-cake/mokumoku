@@ -1,6 +1,6 @@
 # mokumoku のストア提出準備
 
-最終更新: 2026-10-24。0.1.0 を審査提出済み。管理画面で「審査待ち」を確認した。
+最終更新: 2026-10-30。0.2.0 の提出準備中。0.1.0 は 2026-10-24 に提出した。現在の審査・公開状態は未確認。
 
 拡張機能 ID: `hmhgbppkbadnofkbnnbmolgccnpmnfoe`。
 
@@ -12,11 +12,13 @@
 
 ### 詳しい説明
 
-公開されたばかりで、再生数はまだ少ない。それでも、いつもより多く見られている。そんな動画を探してみませんか。
+再生数はまだ少ない。それでも、いつもより多く見られている。そんな動画を探してみませんか。
 
 mokumoku は、公開からの経過時間を考慮して、同じチャンネルの中で普段より伸びている動画を見つける拡張機能です。
 
-チャンネルの「動画」または「ライブ」タブを「新しい順」で開き、mokumoku のボタンを押すと、比較結果がサイドパネルに表示されます。「直近1か月」などの期間を選んで、動画をまとめて追加できます。配信中・配信予定の動画は対象外です。
+チャンネルの「動画」または「ライブ」タブを「新しい順」で開き、mokumoku のボタンを押すと、比較結果がサイドパネルに表示されます。「直近1か月」などの期間や任意の日数・月数・年数を指定し、必要な動画を自動で追加できます。配信中・配信予定の動画は対象外です。
+
+比較には、公開から1日以上たった動画が8本以上必要です。
 
 単一の目的: YouTubeチャンネル内で、公開からの経過時間を考慮して再生数が伸びている動画を見つける。
 
@@ -24,30 +26,33 @@ mokumoku は、公開からの経過時間を考慮して、同じチャンネ�
 
 ### 英語の詳しい説明
 
-A video was just published and still has few views, yet it is attracting more views than usual. Want to find videos like that?
+A video can have few views and still be doing better than usual. Want to find videos like that?
 
 mokumoku helps you find videos that are taking off within the same YouTube channel, taking the time since publication into account.
 
-Open a channel’s Videos or Live tab, sort by Latest, and click the mokumoku button to see the comparison in the side panel. Choose a period such as the past month to load more videos together. Ongoing and upcoming live streams are excluded.
+Open a channel’s Videos or Live tab, sort by Latest, and click the mokumoku button to see the comparison in the side panel. Choose a preset or enter a number of days, months, or years to load videos for that period automatically. Ongoing and upcoming live streams are excluded.
+
+Comparison requires at least eight videos published one day or more ago.
 
 ## 必要な画像
 
 | 画像 | サイズ | 状況 |
 | --- | --- | --- |
 | アイコン | 128×128 PNG | 作成済み。赤い太線の雲を採用。`public/icon/128.png` |
-| スクリーンショット | 1280×800 | 作成済み。`store-assets/screenshot-ja.png` |
-| 小型プロモーション画像 | 440×280 | 作成済み。`store-assets/promo-small.png` |
+| スクリーンショット | 1280×800 | 既存画像は旧 UI。0.2.0 用の更新・確認待ち。`store-assets/screenshot-ja.png` |
+| 小型プロモーション画像 | 440×280 | 既存画像あり。0.2.0 用の確認待ち。`store-assets/promo-small.png` |
 
 拡張機能用アイコンは `public/icon/` に 16・32・48・128 px の PNG を作成した。
 採用していない生成案は配布物に含めない。
-スクリーンショットは開発専用のヘッドレス Chrome で撮影した実画面を使用した。
+既存スクリーンショットは 2026-10-23 に開発専用のヘッドレス Chrome で撮影した実画面を使用した。
 Google Japan の実際のサイドパネルを、読み込み範囲「直近1年」で撮影した。
 左に紹介文と手順、右に幅を広げたパネルを配置した。手順番号はグレーに統一した。
 撮影記録は `store-assets/capture.json` に保存した。
+0.2.0 の掲載画像と撮影記録の更新は未確認。
 
 ## 権限の説明案
 
-通常ビルドの生成済み manifest を確認した。提出用 ZIP でも再確認する。
+2026-10-30 に通常ビルドの manifest 設定を確認した。0.2.0 の提出用 ZIP は未検査。
 
 | 権限 | 用途 |
 | --- | --- |
@@ -59,11 +64,11 @@ Google Japan の実際のサイドパネルを、読み込み範囲「直近1年
 
 ## プライバシーとデータ利用
 
-2026-10-22 に通常配布版のコードを確認した。申告には、端末内の処理も含める。
+2026-10-30 に通常配布版のコードを確認した。申告には、端末内の処理も含める。
 「データ収集なし」「外部通信なし」「パネルを開いたときだけ読む」とは記載しない。
 
 - 対象の YouTube ページで、パネルを閉じている間も動画情報とチャンネル ID を読み取る。
-- 読み込み範囲は開いているパネル内だけで保持する。
+- 読み込み範囲と任意期間の入力は開いているパネル内だけで保持し、永続保存しない。
 - パネルの所有タブ情報をセッション中に保持する。
 - 動画のサムネイルを `i.ytimg.com` から取得する。
 
@@ -90,7 +95,7 @@ Google Japan の実際のサイドパネルを、読み込み範囲「直近1年
 
 ### プライバシーポリシー
 
-本文は [PRIVACY.md](PRIVACY.md)。公開先は [プライバシーポリシー](https://raw.githubusercontent.com/apricot-cake/mokumoku/main/PRIVACY.md)。2026-10-23 に HTTP 200 と本文の一致を確認した。
+本文は [PRIVACY.md](PRIVACY.md)。公開先は [プライバシーポリシー](https://raw.githubusercontent.com/apricot-cake/mokumoku/main/PRIVACY.md)。2026-10-30 に HTTP 200 と本文の一致を確認した。
 問い合わせ先にはリポジトリの Issues を記載した。リポジトリの公開と Issues の有効化を確認済み。
 
 ## 配布と開発者情報
@@ -103,21 +108,35 @@ Google Japan の実際のサイドパネルを、読み込み範囲「直近1年
 
 | バージョン | 状況 | 内容 |
 | --- | --- | --- |
-| 0.1.0 | 審査待ち（2026-10-24提出） | 初回提出。チャンネル内の動画比較と追加読み込み |
+| 0.2.0 | 提出準備中（2026-10-30） | 任意期間、ライブ対応、タブ別パネル、画面と読み込み操作の改善 |
+| 0.1.0 | 2026-10-24 に提出。当日は審査待ちを確認 | 初回提出。チャンネル内の動画比較と追加読み込み |
 
-## 提出前の確認
+## 0.2.0 の提出前の確認
+
+- [x] 掲載画像を現行 UI と照合し、1280×800 の画像と撮影記録を更新した。
+- [x] 提出用 ZIP を通常配布ビルドから作成し、manifest、権限、アイコン、ライセンス、CRC、不要ファイルなど16項目を検査した。
+- [ ] 機能単位のコミットと push、対象コミットの CI 成功を確認する。
+- [ ] 画像・日英の掲載文・権限理由・データ利用申告と公開プライバシーポリシーを照合する。
+- [ ] 管理画面で現在の状態を確認し、0.2.0 を提出する。
+
+0.2.0 は提出時に審査後の自動公開を有効にする予定。設定変更と提出は未実施。
+2026-10-30 に `check`（242件成功・4件スキップ）、`build`、`build-storybook`、固定 E2E（10件成功）、実サイトテスト（6件成功）を確認した。実サイトテストの通信はページ取得2回・一覧 API 2回だった。
+
+提出用ソースは `c8bba097880136f8267d9bd5f812483f1036ca47`。ZIP は `.output/mokumoku-0.2.0-chrome.zip`（6,133,181 bytes）、SHA-256 は `c24ba93b7bb886282325e89bd3695bd549af0ac51a6aca39f473088b2ddbd000`。16項目の検査結果は `store-assets/package-report.json` に保存した。
+
+## 0.1.0 の提出記録（2026-10-24）
 
 - [x] 今回のアイコン・画像・英語概要の変更を機能ごとにコミットし、push 後の [CI](https://github.com/apricot-cake/mokumoku/actions/runs/40043345607) の成功を確認した（`4e88048`）。
 - [x] アイコン反映後のソースで `check`、`build`、`smoke` を確認した。英語概要の短縮後は `check` と ZIP の検査を再実施した。
 - [x] `build-storybook` の成功を CI で確認した。
 - [x] 通常ビルドの `pnpm run zip` で `.output/mokumoku-0.1.0-chrome.zip` を作成した。
-- [x] ZIP の manifest、権限、アイコン寸法、ライセンス同梱、CRC、不要ファイル不在を確認した。検査結果は `store-assets/package-report.json`。
+- [x] ZIP の manifest、権限、アイコン寸法、ライセンス同梱、CRC、不要ファイル不在を確認した。当時の ZIP サイズと SHA-256 は以下に記録。
 - [x] 必須画像、日英の掲載文、権限の理由、データ利用申告を保存した。
 - [x] プライバシーポリシーを公開し、申告案との一致を確認した。
 - [x] 公開者 `apricot-cake`、料金なし・公開・全地域の配布設定を確認した。
 
 Chrome 142 以降に対応。YouTube の画面構造や表示言語の影響を受けるため、提出版で実機確認する。
-現在は審査待ち。承認・公開は未完了。
+以下は提出当日の記録で、現在の審査・公開状態を示すものではない。
 
 2026-10-24 に、太くした雲アイコンを含む ZIP の17項目の検査に合格した。
 英語概要をストア上限内の109文字に短縮し、`check` の186件成功・4件スキップを確認して ZIP を再生成した。
@@ -127,7 +146,7 @@ Google の再ログイン完了後にアップロードし、掲載文・画像�
 ウェブ履歴・ウェブサイトのコンテンツを申告し、その他のデータ分類は選択していない。
 リモートコードは使用しない。3つのデータ利用の確約を実装と照合して選択した。
 審査用の手順には、Google Japan の動画タブ・新しい順・ログイン不要・比較に必要な条件を記載した。
-審査後の自動公開を外した。審査の合格後に別途公開する。
+当日は審査後の自動公開を外し、審査の合格後に別途公開する方針とした。
 
 ## 公式資料
 
