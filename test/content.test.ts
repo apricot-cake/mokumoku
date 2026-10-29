@@ -37,20 +37,22 @@ function onMessage(message: unknown) {
   return handler(message, {}, vi.fn());
 }
 
-it.each([undefined, 1000])(
-  "ページ移動で読み込みを止める（期間: %s）",
-  async (untilAgeMs) => {
-    const result = onMessage({ type: LOAD_MORE_REQUEST, untilAgeMs });
-    document.dispatchEvent(new Event("yt-navigate-start"));
-    expect(await result).toBe("cancelled");
-    expect(window.scrollTo).not.toHaveBeenCalled();
-  },
-);
+it("ページ移動で期間の読み込みを止める", async () => {
+  const result = onMessage({ type: LOAD_MORE_REQUEST, untilAgeMs: 1000 });
+  document.dispatchEvent(new Event("yt-navigate-start"));
+  expect(await result).toBe("cancelled");
+  expect(window.scrollTo).not.toHaveBeenCalled();
+});
 
-it("中止メッセージでも、単発の読み込みを待たずに終了する", async () => {
-  const result = onMessage({ type: LOAD_MORE_REQUEST });
+it("中止メッセージでも、期間の読み込みを待たずに終了する", async () => {
+  const result = onMessage({ type: LOAD_MORE_REQUEST, untilAgeMs: 1000 });
   onMessage({ type: LOAD_CANCEL_REQUEST });
   expect(await result).toBe("cancelled");
+  expect(window.scrollTo).not.toHaveBeenCalled();
+});
+
+it("期間を省略した読み込み依頼は受け付けない", () => {
+  expect(onMessage({ type: LOAD_MORE_REQUEST })).toBeUndefined();
   expect(window.scrollTo).not.toHaveBeenCalled();
 });
 

@@ -52,7 +52,7 @@ describe("isPageSnapshot", () => {
 
 describe("追加読み込みのメッセージ", () => {
   it("依頼の形を判別する", () => {
-    expect(isLoadMoreRequest({ type: "mokumoku:load-more" })).toBe(true);
+    expect(isLoadMoreRequest({ type: "mokumoku:load-more" })).toBe(false);
     expect(
       isLoadMoreRequest({ type: "mokumoku:load-more", untilAgeMs: 1000 }),
     ).toBe(true);
@@ -60,6 +60,9 @@ describe("追加読み込みのメッセージ", () => {
       isLoadMoreRequest({ type: "mokumoku:load-more", untilAgeMs: -1 }),
     ).toBe(false);
     expect(isLoadMoreRequest({ type: "other" })).toBe(false);
+    expect(
+      isLoadMoreRequest({ type: "mokumoku:load-more", untilAgeMs: Infinity }),
+    ).toBe(false);
   });
 
   it("結果の値を判別する", () => {

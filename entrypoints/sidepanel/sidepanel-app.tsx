@@ -32,7 +32,6 @@ import {
   SelectValue,
 } from "./components/ui/select.tsx";
 import { Separator } from "./components/ui/separator.tsx";
-import { cn } from "./lib/utils.ts";
 import { type LoadState, useLoader } from "./use-loader.ts";
 import { usePageSnapshot } from "./use-page-snapshot.ts";
 import { usePeriod } from "./use-period.ts";
@@ -251,20 +250,13 @@ function StatusLine({
   const summary = () => t("panelRangeCount", [String(shownCount)]);
   let text: string;
   let action: { label: string; onClick: () => void } | null = null;
-  if (state.kind === "loading") {
+  if (period === "all") {
+    text = t("panelLoadedCount", [String(loadedCount)]);
+  } else if (state.kind === "loading") {
     text = t("panelLoadingCount", [String(loadedCount)]);
-    if (state.mode === "period")
-      action = { label: t("panelLoadCancel"), onClick: onCancel };
-  } else if (period === "all") {
-    text =
-      state.kind === "done" &&
-      state.mode === "more" &&
-      state.result === "timeout"
-        ? t("panelLoadMoreFailed")
-        : t("panelLoadedCount", [String(loadedCount)]);
+    action = { label: t("panelLoadCancel"), onClick: onCancel };
   } else if (
     state.kind === "done" &&
-    state.mode === "period" &&
     !periodLoaded &&
     (state.result === "limit" ||
       state.result === "cancelled" ||
@@ -292,32 +284,6 @@ function StatusLine({
         </Button>
       ) : null}
     </div>
-  );
-}
-
-/** 「期間指定なし」のときにヘッダーへ置く、1回分の追加読み込み。 */
-function LoadMoreButton({
-  canLoadMore,
-  loading,
-  onLoad,
-}: {
-  canLoadMore: boolean;
-  loading: boolean;
-  onLoad: () => void;
-}) {
-  return (
-    <Button
-      type="button"
-      variant="outline"
-      onClick={onLoad}
-      disabled={loading || !canLoadMore}
-    >
-      {!canLoadMore
-        ? t("panelAllLoaded")
-        : loading
-          ? t("panelLoadingMore")
-          : t("panelLoadMore")}
-    </Button>
   );
 }
 
@@ -388,28 +354,19 @@ function ChannelRanking({
           />
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <div className={cn(period === "all" && "grow")}>
-            <PeriodSelect
-              value={period}
-              onChange={(next) => {
-                if (state.kind === "loading") cancel();
-                setCustomPeriod(undefined);
-                setPeriod(next);
-              }}
-            />
-          </div>
-          {period === "all" ? (
-            <LoadMoreButton
-              canLoadMore={snapshot.canLoadMore}
-              loading={state.kind === "loading"}
-              onLoad={() => void run(null)}
-            />
-          ) : null}
+          <PeriodSelect
+            value={period}
+            onChange={(next) => {
+              if (state.kind === "loading") cancel();
+              setCustomPeriod(undefined);
+              setPeriod(next);
+            }}
+          />
           {period === "custom" ? (
             <CustomPeriodForm onApply={setCustomPeriod} />
           ) : null}
         </div>
-        {state.kind === "loading" ? (
+        {period !== "all" && state.kind === "loading" ? (
           // 進み具合は事前に分からないので、値を持たない不確定の進捗バーにする。
           <Progress
             aria-label={t("panelLoadingMore")}

@@ -9,15 +9,11 @@ import {
   type LoadMoreResult,
 } from "../../utils/snapshot.ts";
 
-/** period は読み込み範囲まで続けて、more は1回分だけ読み込む。 */
-export type LoadMode = "period" | "more";
-
 export type LoadState =
   | { readonly kind: "idle" }
-  | { readonly kind: "loading"; readonly mode: LoadMode }
+  | { readonly kind: "loading" }
   | {
       readonly kind: "done";
-      readonly mode: LoadMode;
       readonly result: LoadMoreResult;
     };
 
@@ -44,7 +40,7 @@ export function useLoader(tabId: number) {
   }, [tabId]);
 
   const run = useCallback(
-    async (untilAgeMs: number | null) => {
+    async (untilAgeMs: number) => {
       const signal = lifecycle.current?.signal;
       if (!signal || signal.aborted) return;
       if (inflight.current !== null) {
@@ -56,12 +52,8 @@ export function useLoader(tabId: number) {
       // ビルドがあれば拡張機能が読み込み直されてパネルが閉じるので、進めない。
       // ページ移動で画面が破棄された後は、確認待ちだった操作も開始しない。
       if (!(await checkPanelBuild()) || signal.aborted) return;
-      const mode: LoadMode = untilAgeMs === null ? "more" : "period";
-      const request: LoadMoreRequest =
-        untilAgeMs === null
-          ? { type: LOAD_MORE_REQUEST }
-          : { type: LOAD_MORE_REQUEST, untilAgeMs };
-      setState({ kind: "loading", mode });
+      const request: LoadMoreRequest = { type: LOAD_MORE_REQUEST, untilAgeMs };
+      setState({ kind: "loading" });
       const sent = browser.tabs.sendMessage(tabId, request).catch(() => null);
       inflight.current = sent;
       const result = await sent;
@@ -69,7 +61,6 @@ export function useLoader(tabId: number) {
       if (signal.aborted) return;
       setState({
         kind: "done",
-        mode,
         result: isLoadMoreResult(result) ? result : "timeout",
       });
     },

@@ -31,10 +31,9 @@ export const LOAD_CANCEL_REQUEST = "mokumoku:load-cancel";
 export interface LoadMoreRequest {
   readonly type: typeof LOAD_MORE_REQUEST;
   /**
-   * 指定すると、読み込み済みの一番古い動画がこの経過時間を超えるまで続けて
-   * 読み込む。省略すると1回分だけ読み込む。
+   * 読み込み済みの一番古い動画がこの経過時間を超えるまで続けて読み込む。
    */
-  readonly untilAgeMs?: number;
+  readonly untilAgeMs: number;
 }
 
 /**
@@ -67,8 +66,9 @@ export function isLoadMoreRequest(value: unknown): value is LoadMoreRequest {
   const request = value as Partial<LoadMoreRequest>;
   return (
     request.type === LOAD_MORE_REQUEST &&
-    (request.untilAgeMs === undefined ||
-      (typeof request.untilAgeMs === "number" && request.untilAgeMs > 0))
+    typeof request.untilAgeMs === "number" &&
+    Number.isFinite(request.untilAgeMs) &&
+    request.untilAgeMs > 0
   );
 }
 

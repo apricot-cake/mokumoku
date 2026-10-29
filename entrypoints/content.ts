@@ -1,5 +1,5 @@
 import { browser } from "wxt/browser";
-import { loadMore, loadUntil } from "../utils/load-more.ts";
+import { loadUntil } from "../utils/load-more.ts";
 import {
   CHANNEL_REQUEST,
   CHANNEL_UPDATE,
@@ -81,10 +81,10 @@ export default defineContentScript({
         if (loading === null) {
           const controller = new AbortController();
           cancelLoading = controller;
-          loading = (
-            message.untilAgeMs === undefined
-              ? loadMore(document, undefined, controller.signal)
-              : loadUntil(document, message.untilAgeMs, controller.signal)
+          loading = loadUntil(
+            document,
+            message.untilAgeMs,
+            controller.signal,
           ).finally(() => {
             loading = null;
             cancelLoading = null;

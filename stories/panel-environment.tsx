@@ -19,7 +19,7 @@ export interface PanelScenario {
 
 interface PanelEnvironment extends PanelScenario {
   setPeriod: (period: PeriodId) => void;
-  run: (untilAgeMs: number | null) => Promise<void>;
+  run: (untilAgeMs: number) => Promise<void>;
   cancel: () => void;
 }
 
@@ -36,7 +36,7 @@ export function PanelProvider({
   const [period, setPeriod] = useState(scenario.period);
   const [loadState, setLoadState] = useState(scenario.loadState);
   // 操作時に固定サンプルを追加する。YouTube や拡張機能には接続しない。
-  const run = useCallback(async (untilAgeMs: number | null) => {
+  const run = useCallback(async () => {
     setPage((current) => {
       if (current?.snapshot.kind !== "ready") return current;
       const existing = new Set(
@@ -56,12 +56,11 @@ export function PanelProvider({
     });
     setLoadState({
       kind: "done",
-      mode: untilAgeMs === null ? "more" : "period",
       result: "end",
     });
   }, []);
   const cancel = useCallback(() => {
-    setLoadState({ kind: "done", mode: "period", result: "cancelled" });
+    setLoadState({ kind: "done", result: "cancelled" });
   }, []);
   const value = useMemo(
     () => ({ page, period, loadState, setPeriod, run, cancel }),

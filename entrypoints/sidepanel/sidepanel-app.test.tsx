@@ -246,7 +246,7 @@ describe("SidepanelApp", () => {
     expect(fresh?.textContent).toContain("動画 fresh");
   });
 
-  it("期間指定なしのときは、ヘッダーのボタンで1回分を読み込む", async () => {
+  it("期間指定なしのときは、読み込み操作を出さず追加読み込みもしない", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
       channel: "Example",
@@ -254,14 +254,15 @@ describe("SidepanelApp", () => {
       empty: false,
       videos: [video("a", 100, 2)],
     };
-    const send = await render(snapshot, () => Promise.resolve("timeout"));
+    const send = await render(snapshot);
     expect(status()).toBe("1 videos loaded");
-    expect(button("Load more").disabled).toBe(false);
-    await act(async () => {
-      button("Load more").click();
-    });
-    expect(send).toHaveBeenCalledWith(1, { type: "mokumoku:load-more" });
-    expect(status()).toBe("Couldn't load more videos. Try again.");
+    expect(
+      container.querySelectorAll('header button:not([role="combobox"])'),
+    ).toHaveLength(0);
+    expect(send).not.toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ type: "mokumoku:load-more" }),
+    );
   });
 
   it("期間を選ぶと、それより古い動画を一覧から隠し、永続保存しない", async () => {
@@ -714,7 +715,7 @@ describe("SidepanelApp", () => {
     ).toHaveLength(0);
   });
 
-  it("最後まで読み込んだらボタンを無効にする", async () => {
+  it("最後まで読み込み済みでも、期間指定なしのときは操作を出さない", async () => {
     const snapshot: PageSnapshot = {
       kind: "ready",
       channel: "Example",
@@ -723,7 +724,10 @@ describe("SidepanelApp", () => {
       videos: [video("a", 100, 2)],
     };
     await render(snapshot);
-    expect(button("All loaded").disabled).toBe(true);
+    expect(
+      container.querySelectorAll('header button:not([role="combobox"])'),
+    ).toHaveLength(0);
+    expect(status()).toBe("1 videos loaded");
   });
 
   it("基準を出せないときは読み込みを促す", async () => {

@@ -53,16 +53,12 @@ export const CustomPeriod: Story = {
   name: "期間指定モック",
   args: { period: "custom" },
 };
-export const LoadingMore: Story = {
-  name: "追加読み込み中",
-  args: { loadState: { kind: "loading", mode: "more" } },
-};
 export const LoadingPeriod: Story = {
   name: "期間の読み込み中",
   args: {
     page: partialPage,
     period: "month",
-    loadState: { kind: "loading", mode: "period" },
+    loadState: { kind: "loading" },
   },
 };
 export const TimedOut: Story = {
@@ -70,7 +66,7 @@ export const TimedOut: Story = {
   args: {
     period: "month",
     page: partialPage,
-    loadState: { kind: "done", mode: "period", result: "timeout" },
+    loadState: { kind: "done", result: "timeout" },
   },
 };
 export const AllLoaded: Story = {
