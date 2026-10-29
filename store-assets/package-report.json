@@ -18,13 +18,8 @@
     },
     "minimum_chrome_version": "142",
     "default_locale": "en",
-    "permissions": [
-      "storage",
-      "sidePanel"
-    ],
-    "host_permissions": [
-      "https://www.youtube.com/*"
-    ],
+    "permissions": ["storage", "sidePanel"],
+    "host_permissions": ["https://www.youtube.com/*"],
     "action": {
       "default_title": "mokumoku",
       "default_icon": {
@@ -40,44 +35,28 @@
     },
     "content_scripts": [
       {
-        "matches": [
-          "https://www.youtube.com/*"
-        ],
+        "matches": ["https://www.youtube.com/*"],
         "run_at": "document_idle",
-        "js": [
-          "content-scripts/content.js"
-        ]
+        "js": ["content-scripts/content.js"]
       }
     ]
   },
   "entryCount": 145,
   "icons": {
     "16": {
-      "dimensions": [
-        16,
-        16
-      ],
+      "dimensions": [16, 16],
       "bytes": 334
     },
     "32": {
-      "dimensions": [
-        32,
-        32
-      ],
+      "dimensions": [32, 32],
       "bytes": 797
     },
     "48": {
-      "dimensions": [
-        48,
-        48
-      ],
+      "dimensions": [48, 48],
       "bytes": 1187
     },
     "128": {
-      "dimensions": [
-        128,
-        128
-      ],
+      "dimensions": [128, 128],
       "bytes": 3682
     }
   },
