@@ -76,4 +76,20 @@ jobs:
 
       - run: pnpm run build
 
+      - name: Chrome のバージョンを記録する
+        run: google-chrome --version
+
+      - name: 固定データで拡張機能の E2E を確認する
+        run: pnpm run test:e2e
+
+      - name: E2E の結果と失敗資料を保存する
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: extension-e2e
+          path: .output/e2e-results/
+          include-hidden-files: true
+          if-no-files-found: ignore
+          retention-days: 7
+
       - run: pnpm run build-storybook

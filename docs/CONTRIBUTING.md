@@ -50,6 +50,21 @@ pnpm run browser:open
 
 `wxt.config.ts` の権限などを変更した場合は、開発サーバーと開発用 Chrome の両方を閉じ、`pnpm dev` を実行し直してください。
 
+### 固定データで拡張機能の E2E を確認する
+
+ビルド後に、次のコマンドを実行します。
+
+```powershell
+pnpm run build
+pnpm run test:e2e
+```
+
+Vitest の Node.js 環境から Puppeteer でヘッドレスの Chrome を pipe 接続で起動します。ケースごとに OS の一時フォルダー内へ専用プロファイルを作り、ビルド済みの拡張機能を読み込みます。ツールバー操作と同じ経路で実際のサイドパネルを開き、期間の選択、任意期間の入力、タブの切り替え、ページ遷移などを確認します。
+
+YouTube の応答には固定の HTML を使い、YouTube へのネットワークアクセスは行いません。この E2E は実サイトの確認とは別です。YouTube との連携に影響する変更やリリース前には、必要に応じて次の `pnpm run smoke` を実行してください。
+
+失敗時の PNG、HTML、診断 JSON は `.output/e2e-results/` に保存します。Vitest の結果は同フォルダーの `result.json` で確認できます。
+
 ### 実際の YouTube ページを確認する
 
 自動確認には `pnpm run smoke` を使います。先に `pnpm run build` を実行し、手動確認用の Chrome を閉じてください。ウィンドウを表示しないヘッドレスモードで、動画情報の読み取りとサイドパネルの表示を確認します。

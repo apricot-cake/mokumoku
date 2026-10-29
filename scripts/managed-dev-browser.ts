@@ -38,8 +38,11 @@ export function devBrowserArgs(profile: string): string[] {
 }
 
 /** 接続を起動元の匿名 pipe に限定し、既存 Chrome には接続しない。 */
-export async function launchDevBrowser(headless: boolean): Promise<Browser> {
-  const profile = devBrowserProfile();
+export async function launchDevBrowser(
+  headless: boolean,
+  profile = devBrowserProfile(),
+  additionalArgs: string[] = [],
+): Promise<Browser> {
   secureDevBrowserProfile(profile);
   return await launch({
     executablePath: process.env.MOKUMOKU_CHROME || findChromePath(),
@@ -65,6 +68,7 @@ export async function launchDevBrowser(headless: boolean): Promise<Browser> {
         (arg) => !arg.startsWith("--user-data-dir="),
       ),
       ...(headless ? ["--window-size=1280,720"] : []),
+      ...additionalArgs,
     ],
   }).catch((cause) => {
     throw new Error(
