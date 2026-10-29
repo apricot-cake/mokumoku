@@ -31,7 +31,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "./components/ui/select.tsx";
-import { Separator } from "./components/ui/separator.tsx";
 import { type LoadState, useLoader } from "./use-loader.ts";
 import { usePageSnapshot } from "./use-page-snapshot.ts";
 import { usePeriod } from "./use-period.ts";
@@ -251,7 +250,7 @@ function StatusLine({
   let text: string;
   let action: { label: string; onClick: () => void } | null = null;
   if (period === "all") {
-    text = t("panelLoadedCount", [String(loadedCount)]);
+    text = t("panelLoadedCount", [String(shownCount)]);
   } else if (state.kind === "loading") {
     text = t("panelLoadingCount", [String(loadedCount)]);
     action = { label: t("panelLoadCancel"), onClick: onCancel };
@@ -307,7 +306,6 @@ function ChannelRanking({
       : [];
   const hiddenCount =
     ranking.kind === "ranked" ? ranking.videos.length - shown.length : 0;
-  const freshCount = ranking.kind === "ranked" ? ranking.fresh.length : 0;
   const untilAgeMs = periodMaxAgeMs(period, customPeriod);
   // 新しい順なので、期間を超える動画が1本でもあれば期間内はすべて読み込み済み。
   const periodLoaded =
@@ -345,7 +343,9 @@ function ChannelRanking({
             period={period}
             state={state}
             loadedCount={snapshot.videos.length}
-            shownCount={shown.length + freshCount}
+            shownCount={
+              ranking.kind === "ranked" ? shown.length : snapshot.videos.length
+            }
             periodLoaded={periodLoaded}
             onCancel={cancel}
             onResume={() => {
@@ -392,19 +392,6 @@ function ChannelRanking({
             <p className="px-4 pb-3 text-xs text-muted-foreground">
               {t("panelHiddenByPeriod", [String(hiddenCount)])}
             </p>
-          ) : null}
-          {ranking.fresh.length > 0 ? (
-            <section className="flex flex-col">
-              <Separator />
-              <h2 className="px-4 pt-3 text-xs font-medium text-muted-foreground">
-                {t("panelProvisional")}
-              </h2>
-              <ul className="flex flex-col p-2">
-                {ranking.fresh.map((video) => (
-                  <VideoRow key={video.id} video={video} />
-                ))}
-              </ul>
-            </section>
           ) : null}
         </>
       )}

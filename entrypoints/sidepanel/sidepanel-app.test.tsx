@@ -218,7 +218,7 @@ describe("SidepanelApp", () => {
     expect(container.textContent).toContain("Sort the videos by Latest");
   });
 
-  it("倍率順の一覧と、公開1日未満の欄を出す", async () => {
+  it("公開1日以上の動画だけを倍率順に並べ、表示した件数を示す", async () => {
     const typical = [1, 2, 4, 7, 14, 30, 60, 90, 180, 365].map((days) =>
       video(`d${days}`, Math.round(10000 * Math.sqrt(days)), days),
     );
@@ -241,9 +241,9 @@ describe("SidepanelApp", () => {
     expect(ranked[0]?.querySelector("a")?.getAttribute("href")).toBe(
       "https://www.youtube.com/watch?v=rising",
     );
-    const fresh = container.querySelector("section");
-    expect(fresh?.textContent).toContain("Less than a day old");
-    expect(fresh?.textContent).toContain("動画 fresh");
+    expect(container.querySelector("section")).toBeNull();
+    expect(container.textContent).not.toContain("動画 fresh");
+    expect(status()).toBe("11 videos loaded");
   });
 
   it("期間指定なしのときは、読み込み操作を出さず追加読み込みもしない", async () => {

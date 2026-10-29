@@ -20,7 +20,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** 当てはめに必要な動画数。これ未満では基準を出さない。 */
 export const MIN_BASELINE_SAMPLES = 8;
-/** 公開からこれ未満の動画は値のぶれが大きいので、基準に入れず参考値として扱う。 */
+/** 公開からこれ未満の動画は値のぶれが大きいので、基準と一覧の対象から外す。 */
 export const PROVISIONAL_AGE_MS = DAY_MS;
 /** 基準に使う動画数の上限。新しい順に数え、チャンネルの規模の変化を追う。 */
 export const BASELINE_WINDOW = 200;
