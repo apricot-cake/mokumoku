@@ -243,7 +243,7 @@ describe("SidepanelApp", () => {
     );
     expect(container.querySelector("section")).toBeNull();
     expect(container.textContent).not.toContain("動画 fresh");
-    expect(status()).toBe("11 videos loaded");
+    expect(status()).toBe("11 videos");
   });
 
   it("期間指定なしのときは、読み込み操作を出さず追加読み込みもしない", async () => {
@@ -255,7 +255,7 @@ describe("SidepanelApp", () => {
       videos: [video("a", 100, 2)],
     };
     const send = await render(snapshot);
-    expect(status()).toBe("1 videos loaded");
+    expect(status()).toBe("1 videos");
     expect(
       container.querySelectorAll('header button:not([role="combobox"])'),
     ).toHaveLength(0);
@@ -283,7 +283,7 @@ describe("SidepanelApp", () => {
     );
     expect(ranked).toHaveLength(6);
     expect(ranked.some((row) => row.includes("動画 d60"))).toBe(false);
-    expect(container.textContent).toContain("4 older videos are hidden");
+    expect(container.textContent).not.toContain("older videos are hidden");
     expect(await fakeBrowser.storage.local.get("period")).toEqual({});
   });
 
@@ -368,7 +368,7 @@ describe("SidepanelApp", () => {
     expect(container.querySelectorAll("ol > li")).toHaveLength(10);
     await act(async () => button("Apply").click());
     expect(container.querySelectorAll("ol > li")).toHaveLength(8);
-    expect(container.textContent).toContain("2 older videos are hidden");
+    expect(container.textContent).not.toContain("older videos are hidden");
     await act(async () => {
       enterCustomValue("2");
       await chooseCustomUnit("month");
@@ -709,7 +709,7 @@ describe("SidepanelApp", () => {
         type: "mokumoku:load-more",
       }),
     );
-    expect(status()).toBe("4 videos in range");
+    expect(status()).toBe("4 videos");
     expect(
       container.querySelectorAll('header button:not([role="combobox"])'),
     ).toHaveLength(0);
@@ -727,7 +727,7 @@ describe("SidepanelApp", () => {
     expect(
       container.querySelectorAll('header button:not([role="combobox"])'),
     ).toHaveLength(0);
-    expect(status()).toBe("1 videos loaded");
+    expect(status()).toBe("1 videos");
   });
 
   it("基準を出せないときは読み込みを促す", async () => {

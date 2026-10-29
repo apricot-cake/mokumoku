@@ -15,7 +15,7 @@ function video(index: number, days: number): VideoEntry {
     title: titles[index % titles.length] ?? "作業の記録",
     views: Math.round(10000 * Math.sqrt(days) * (index % 4 === 0 ? 3.2 : 1)),
     ageMs: days * DAY,
-    ageText: days < 1 ? "6 時間前" : `${days} 日前`,
+    ageText: days < 1 ? "6時間前" : `${days}日前`,
   };
 }
 

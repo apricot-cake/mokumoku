@@ -1,3 +1,4 @@
+import { Play } from "lucide-react";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { t } from "../../utils/i18n.ts";
 import { LOAD_UNTIL_MAX_VIDEOS } from "../../utils/load-more.ts";
@@ -21,7 +22,12 @@ import {
   EmptyTitle,
 } from "./components/ui/empty.tsx";
 import { Field, FieldGroup, FieldLabel } from "./components/ui/field.tsx";
-import { Input } from "./components/ui/input.tsx";
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from "./components/ui/input-group.tsx";
 import { Progress } from "./components/ui/progress.tsx";
 import {
   Select,
@@ -107,60 +113,62 @@ function CustomPeriodForm({
   const valid = periodMaxAgeMs("custom", draft) !== null;
   return (
     <form
-      className="w-72 max-w-full shrink-0"
+      className="w-60 max-w-full shrink-0"
       onSubmit={(event) => {
         event.preventDefault();
         if (valid) onApply(draft);
       }}
     >
-      <FieldGroup className="w-auto flex-row items-center gap-2">
-        <Field
-          orientation="horizontal"
-          className="w-auto shrink-0 *:data-[slot=field-label]:flex-none"
-          data-invalid={!valid || undefined}
-        >
-          <FieldLabel htmlFor={id} className="whitespace-nowrap">
-            {t("panelPeriodAmount")}
-          </FieldLabel>
-          <Input
-            id={id}
-            type="number"
-            min="1"
-            step="1"
-            required
-            value={value}
-            onChange={(event) => setValue(event.target.value)}
-            aria-invalid={!valid || undefined}
-            className="w-20 flex-none"
-          />
+      <FieldGroup>
+        <Field data-invalid={!valid || undefined}>
+          <InputGroup className="h-8">
+            <InputGroupInput
+              id={id}
+              type="number"
+              min="1"
+              step="1"
+              required
+              value={value}
+              onChange={(event) => setValue(event.target.value)}
+              aria-invalid={!valid || undefined}
+              className="min-w-0"
+            />
+            <InputGroupAddon align="inline-start">
+              <FieldLabel htmlFor={id} className="whitespace-nowrap">
+                {t("panelPeriodAmount")}
+              </FieldLabel>
+            </InputGroupAddon>
+            <InputGroupAddon align="inline-end" className="gap-1">
+              <Select
+                items={units}
+                value={unit}
+                onValueChange={(next) => {
+                  if (next === "day" || next === "month" || next === "year")
+                    setUnit(next);
+                }}
+              >
+                <SelectTrigger
+                  aria-label={t("panelPeriodUnit")}
+                  className="w-auto min-w-16 gap-1 border-0 px-0.5 shadow-none"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent align="end" alignItemWithTrigger={false}>
+                  <SelectGroup>
+                    {units.map((item) => (
+                      <SelectItem key={item.value} value={item.value}>
+                        {item.label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <InputGroupButton type="submit" disabled={!valid}>
+                {t("panelPeriodApply")}
+              </InputGroupButton>
+            </InputGroupAddon>
+          </InputGroup>
         </Field>
-        <Select
-          items={units}
-          value={unit}
-          onValueChange={(next) => {
-            if (next === "day" || next === "month" || next === "year")
-              setUnit(next);
-          }}
-        >
-          <SelectTrigger
-            aria-label={t("panelPeriodUnit")}
-            className="w-auto min-w-16 shrink-0"
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent align="end" alignItemWithTrigger={false}>
-            <SelectGroup>
-              {units.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-        <Button type="submit" disabled={!valid}>
-          {t("panelPeriodApply")}
-        </Button>
       </FieldGroup>
     </form>
   );
@@ -187,40 +195,45 @@ function Notice({ title, hint }: { title: string; hint?: string }) {
 }
 
 function VideoRow({ video }: { video: RankedVideo }) {
+  const views = compactNumber.format(video.views);
   return (
     <li>
       <a
         href={`https://www.youtube.com/watch?v=${encodeURIComponent(video.id)}`}
         target="_blank"
         rel="noreferrer"
-        className="flex gap-3 rounded-md p-2 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
+        className="flex gap-3 rounded-md px-2 py-3 hover:bg-muted focus-visible:bg-muted focus-visible:outline-none"
       >
-        {/* サイドパネルの幅が狭いときはサムネイルを小さくし、タイトルの幅を確保する。 */}
-        <img
-          src={`https://i.ytimg.com/vi/${encodeURIComponent(video.id)}/mqdefault.jpg`}
-          alt=""
-          loading="lazy"
-          className="aspect-video w-24 shrink-0 self-start rounded object-cover min-[400px]:w-28"
-        />
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
-          <div className="flex items-center gap-2">
-            <p
-              className="min-w-0 flex-1 truncate text-sm leading-snug text-foreground"
-              title={video.title}
-            >
-              {video.title}
-            </p>
-            <Badge
-              variant="secondary"
-              className="tabular-nums"
-              title={t("panelRatioDescription")}
-            >
-              ×{ratioNumber.format(video.ratio)}
-            </Badge>
-          </div>
-          <p className="truncate text-xs text-muted-foreground">
-            {t("panelViews", [compactNumber.format(video.views)])} ·{" "}
-            {video.ageText}
+        <div className="relative w-32 shrink-0 self-start">
+          <img
+            src={`https://i.ytimg.com/vi/${encodeURIComponent(video.id)}/mqdefault.jpg`}
+            alt=""
+            loading="lazy"
+            className="aspect-video w-full rounded object-cover"
+          />
+          <Badge
+            variant="glass"
+            size="sm"
+            className="absolute top-1 left-1 tabular-nums"
+            title={t("panelRatioDescription")}
+          >
+            ×{ratioNumber.format(video.ratio)}
+          </Badge>
+        </div>
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+          <p
+            className="line-clamp-2 wrap-anywhere text-sm font-medium leading-snug text-foreground"
+            title={video.title}
+          >
+            {video.title}
+          </p>
+          <p className="flex items-center gap-2 overflow-hidden text-sm text-foreground">
+            <span className="inline-flex shrink-0 items-center gap-1">
+              <Play size={14} aria-hidden="true" />
+              <span aria-hidden="true">{views}</span>
+              <span className="sr-only">{t("panelViews", [views])}</span>
+            </span>
+            <span className="truncate">{video.ageText}</span>
           </p>
         </div>
       </a>
@@ -304,8 +317,6 @@ function ChannelRanking({
           isWithinPeriod(video, period, customPeriod),
         )
       : [];
-  const hiddenCount =
-    ranking.kind === "ranked" ? ranking.videos.length - shown.length : 0;
   const untilAgeMs = periodMaxAgeMs(period, customPeriod);
   // 新しい順なので、期間を超える動画が1本でもあれば期間内はすべて読み込み済み。
   const periodLoaded =
@@ -382,18 +393,11 @@ function ChannelRanking({
           title={t("panelInsufficient", [String(MIN_BASELINE_SAMPLES)])}
         />
       ) : (
-        <>
-          <ol className="flex flex-col p-2">
-            {shown.map((video) => (
-              <VideoRow key={video.id} video={video} />
-            ))}
-          </ol>
-          {hiddenCount > 0 ? (
-            <p className="px-4 pb-3 text-xs text-muted-foreground">
-              {t("panelHiddenByPeriod", [String(hiddenCount)])}
-            </p>
-          ) : null}
-        </>
+        <ol className="flex flex-col p-2">
+          {shown.map((video) => (
+            <VideoRow key={video.id} video={video} />
+          ))}
+        </ol>
       )}
     </div>
   );
