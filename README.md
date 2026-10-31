@@ -13,7 +13,7 @@ YouTube チャンネルの「動画」または「ライブ」タブを「新し
 ## デモ動画
 
 <!-- markdownlint-disable-next-line MD034 -->
-https://github.com/user-attachments/assets/416a7002-1c9e-4c48-b7ce-7c370734b4ef
+https://github.com/user-attachments/assets/f1229a65-b992-47b2-8aa0-c488a3120e89
 
 ## インストール
 
