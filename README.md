@@ -25,6 +25,4 @@ https://github.com/user-attachments/assets/f1229a65-b992-47b2-8aa0-c488a3120e89
 
 開発環境の準備、テスト、画面の確認方法は[開発ガイド](docs/CONTRIBUTING.md)を参照してください。
 
-不具合の報告や改善の提案は [Issues](https://github.com/apricot-cake/mokumoku/issues) で受け付けています。
-
 脆弱性は[非公開フォーム](https://github.com/apricot-cake/mokumoku/security/advisories/new)から報告してください。
